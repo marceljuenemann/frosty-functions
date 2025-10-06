@@ -1,7 +1,8 @@
 use wasmi::*;
 
 fn run_wasm() -> Result<i64, String> {
-    let wasm = include_bytes!("../../../../ic-wasmi-benchmark/target/wasm32-unknown-unknown/wasm/bench.wasm");
+    //let wasm = include_bytes!("../../../../ic-wasmi-benchmark/target/wasm32-unknown-unknown/wasm/bench.wasm");
+    let wasm = include_bytes!("../../assembly-playground/build/debug.wasm");
     let engine = Engine::default();
     let module = Module::new(&engine, &wasm[..]).unwrap();
     let linker = <wasmi::Linker<()>>::new(module.engine());
