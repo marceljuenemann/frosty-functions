@@ -9,6 +9,9 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
+anyhow = "1.0.86"
 candid = "0.10"
 ic-cdk = "0.18"
 ic-cdk-timers = "0.12" # Feel free to remove this dependency if you don't need timers
+# TODO: Update
+wasmi = { version = "0.35.0", default-features = false }
