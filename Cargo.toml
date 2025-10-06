@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "src/frosty-functions-backend"
+]
+resolver = "2"

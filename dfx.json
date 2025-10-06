@@ -1,0 +1,27 @@
+{
+  "canisters": {
+    "frosty-functions-backend": {
+      "candid": "src/frosty-functions-backend/frosty-functions-backend.did",
+      "package": "frosty-functions-backend",
+      "type": "rust"
+    },
+    "frosty-functions-frontend": {
+      "dependencies": [
+        "frosty-functions-backend"
+      ],
+      "source": [
+        "src/frosty-functions-frontend/dist"
+      ],
+      "type": "assets",
+      "workspace": "frosty-functions-frontend"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
