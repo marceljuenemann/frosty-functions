@@ -8,10 +8,10 @@
 - Run that wasm
 - Linking host functions
 - Count gas
+- Gas limit
 
 # Proof of Concept
 
-- Gas limit
 - Simulate (as query call)
 - Pass input / create a callback
 
@@ -28,3 +28,10 @@
 - Simulate
 - Run
 - Store source (separately)
+
+# Distributed System
+
+- Run functions on an executor pool, rather than a single canister
+- Allow calling other functions (including recursive calls)
+- This will effectively allow for multi-threading
+- Can also circumvent the ICP execution limit by yielding control (something like `await delay(0)`)
