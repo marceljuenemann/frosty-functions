@@ -1,4 +1,4 @@
 service : {
     "greet": (text) -> (text) query;
-    "runWasm": () -> (text) query;
+    "run_wasm": () -> (text);
 }

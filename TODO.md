@@ -5,20 +5,26 @@
 - Set up rust
 - Integrate wasmi 
 - Create a wasm from Assembly Script
+- Run that wasm
+- Linking host functions
+- Count gas
 
 # Proof of Concept
 
-- Run that wasm
-- Count gas
-- Pass input
+- Gas limit
+- Simulate (as query call)
+- Pass input / create a callback
 
 # Smart Contract
 
 - Request execution
 - Receive callback
+- ABI encode & decode
 
 # Frontend
 
 - Compile script
-- Store wasm & source
-- 
+- Store wasm
+- Simulate
+- Run
+- Store source (separately)
