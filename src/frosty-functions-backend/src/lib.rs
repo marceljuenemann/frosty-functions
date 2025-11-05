@@ -42,6 +42,7 @@ fn console_log_host(mut caller: wasmi::Caller<'_, ()>, message_ptr: i32) {
     let byte_len = u32::from_le_bytes(len_buf) as usize;
 
     // Read the UTF-16LE bytes
+    // TODO: Definie a max length to prevent abuse
     let mut bytes = vec![0u8; byte_len];
     if let Err(e) = memory.read(&mut caller, ptr, &mut bytes) {
         ic_cdk::println!("console.log: failed reading string bytes: {}", e);
