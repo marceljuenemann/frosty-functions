@@ -17,8 +17,46 @@ fn abort_host(message_ptr: i32, file_ptr: i32, line: i32, column: i32) {
     ic_cdk::trap("AssemblyScript abort");
 }
 
-fn console_log_host(message_ptr: i32) {
-    ic_cdk::println!("AssemblyScript console.log called (message_ptr: {})", message_ptr);
+fn console_log_host(mut caller: wasmi::Caller<'_, ()>, message_ptr: i32) {
+    let ptr = message_ptr as u32 as usize;
+    if ptr < 4 {
+        ic_cdk::println!("AssemblyScript console.log called with invalid pointer: {}", message_ptr);
+        return;
+    }
+
+    // Get the guest memory
+    let memory = match caller.get_export("memory").and_then(|e| e.into_memory()) {
+        Some(m) => m,
+        None => {
+            ic_cdk::println!("AssemblyScript console.log: no memory export found");
+            return;
+        }
+    };
+
+    // Read byte length stored at (ptr - 4)
+    let mut len_buf = [0u8; 4];
+    if let Err(e) = memory.read(&mut caller, ptr - 4, &mut len_buf) {
+        ic_cdk::println!("console.log: failed reading length: {}", e);
+        return;
+    }
+    let byte_len = u32::from_le_bytes(len_buf) as usize;
+
+    // Read the UTF-16LE bytes
+    let mut bytes = vec![0u8; byte_len];
+    if let Err(e) = memory.read(&mut caller, ptr, &mut bytes) {
+        ic_cdk::println!("console.log: failed reading string bytes: {}", e);
+        return;
+    }
+
+    // Decode UTF-16LE -> Rust String
+    let mut u16s = Vec::with_capacity(byte_len / 2);
+    for chunk in bytes.chunks_exact(2) {
+        u16s.push(u16::from_le_bytes([chunk[0], chunk[1]]));
+    }
+    match String::from_utf16(&u16s) {
+        Ok(s) => ic_cdk::println!("AssemblyScript console.log: {}", s),
+        Err(e) => ic_cdk::println!("console.log: invalid UTF-16: {}", e),
+    }
 }
 
 fn exec_wasm() -> Result<(i64, u64), String> {
