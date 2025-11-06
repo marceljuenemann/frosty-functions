@@ -1,4 +1,5 @@
 service : {
     "greet": (text) -> (text) query;
     "run_wasm": () -> (text);
+    "evm_get_logs": (text) -> (variant { Ok: text; Err: text });
 }
