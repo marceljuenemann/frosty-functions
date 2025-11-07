@@ -1,7 +1,20 @@
 use candid::Principal;
 use evm_rpc_client::EvmRpcClient;
 use evm_rpc_types::{RpcServices, BlockTag, Hex20};
+use std::collections::HashMap;
+use std::cell::RefCell;
 use wasmi::*;
+mod job;
+mod chain;
+use chain::{ChainState};
+use crate::job::Job;
+
+thread_local! {
+    // Stores the state related to each blockchain we support.
+    // NOTE: The canister should be non-upgradeable for security reasons. However,
+    // we might still want to move this to stable memory for development purposes.
+    static CHAIN_MAP: RefCell<HashMap<String, ChainState>> = RefCell::new(HashMap::new());
+}
 
 // Host functions that will be available to AssemblyScript
 fn ic_time_host() -> i64 {
@@ -202,6 +215,29 @@ async fn sync_chain(chain_id: String) -> Result<bool, String> {
     match chain_id.as_str() {
         "eip155:31337" => {
             Ok(false)
+        }
+        _ => Err(format!("Unsupported chain id: {}", chain_id)),
+    }
+}
+
+/// Adds a supported chain by its CAIP-2 chain id. Only the owner may call this.
+/// Currently supports only specific EVM chains (namespace "eip155").
+#[ic_cdk::update]
+fn add_chain(chain_id: String, bridge_contract: String) -> Result<bool, String> {
+    // TODO: Check that caller is a controller.
+    match chain_id.as_str() {
+        "eip155:31337" => {
+            let inserted = CHAIN_MAP.with(|m| {
+                let mut map = m.borrow_mut();
+                if map.contains_key(&chain_id) {
+                    false
+                } else {
+                    let chain_state = ChainState::new(chain_id.clone(), bridge_contract.clone());
+                    map.insert(chain_id.clone(), chain_state);
+                    true
+                }
+            });
+            if inserted { Ok(true) } else { Err("Chain already exists".to_string()) }
         }
         _ => Err(format!("Unsupported chain id: {}", chain_id)),
     }

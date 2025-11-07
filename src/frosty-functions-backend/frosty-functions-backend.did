@@ -26,6 +26,9 @@ type JobStatus = variant {
 };
 
 service : {
+  // Adds support for chain. Can only be called by the canister owner.
+  "add_chain": (ChainId, text) -> (variant { Ok: bool; Err: text });
+    
   // Syncs job requests from the specified chain.
   // Returns true if new job requests were synced.
   "sync_chain": (ChainId) -> (variant { Ok: bool; Err: text });
