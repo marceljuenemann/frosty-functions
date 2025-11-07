@@ -17,6 +17,7 @@ pub struct ChainState {
     pub jobs: HashMap<u64, Job>,
 
     // A queue of job IDs that still need to be processed.
+    // TODO: Probably move to one queue for all chains?
     pub job_queue: Vec<u64>,
 }
 

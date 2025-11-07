@@ -214,10 +214,16 @@ fn greet(name: String) -> String {
 async fn sync_chain(chain_id: String) -> Result<bool, String> {
     match chain_id.as_str() {
         "eip155:31337" => {
-            Ok(false)
+            sync_evm_chain(31337).await
         }
         _ => Err(format!("Unsupported chain id: {}", chain_id)),
     }
+}
+
+async fn sync_evm_chain(chain_id: u64) -> Result<bool, String> {
+    // Simulate syncing jobs from the EVM chain
+    ic_cdk::println!("Syncing jobs from EVM chain: {}", chain_id);
+    Ok(true)
 }
 
 /// Adds a supported chain by its CAIP-2 chain id. Only the owner may call this.
