@@ -195,6 +195,18 @@ fn greet(name: String) -> String {
     format!("Hello, {}!", name)
 }
 
+/// Sync jobs from the specified chain.
+/// Returns Ok(true) if new jobs were synced.
+#[ic_cdk::update]
+async fn sync_chain(chain_id: String) -> Result<bool, String> {
+    match chain_id.as_str() {
+        "eip155:31337" => {
+            Ok(false)
+        }
+        _ => Err(format!("Unsupported chain id: {}", chain_id)),
+    }
+}
+
 // Get logs from a smart contract using the local EVM RPC canister
 // Parameters:
 // - contract_address: the contract address (e.g., "0x...")
