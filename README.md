@@ -18,3 +18,23 @@ This proof of concept demonstrates:
 - Setting instruction limits and resuming execution if desired (can be used for charging gas)
 - Compiling Assembly Script into wasm
 - Host functions to extend functionality
+
+## Local testing
+
+### Using anvil and remix
+
+* Start `anvil`
+* Launch https://remix.ethereum.org/
+  * Compile Bridge.sol
+  * Connect to localhost using Custom - External Http Provider
+  * Deploy contract with e.g.
+    * Owner 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 (anvil account[1])
+    * MinPaymentWei 100
+  * Invoke functions with e.g.
+    * FunctionId "0x2f044fb7f581f6deeace9cd91d68500fcd439b3fe82729771c8b4385522ad576"
+    * Data 0xdeadbeef
+    * Value 100000
+* You can view logged events with `cast logs --rpc-url http://localhost:854
+5 --address 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9 --from-block 0 --to-block latest` (replace address with contract address)
+
+

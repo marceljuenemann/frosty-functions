@@ -5,17 +5,17 @@ pragma solidity ^0.8.0;
 contract FrostyBridge {
 
     /// @notice Emitted when a new job is submitted for processing.
-    /// @param jobId Unique monotonically increasing identifier for the job.
     /// @param caller The EOA or contract that submitted the job.
     /// @param functionId SHA-256 of the wasm binary to execute.
     /// @param data Arbitrary binary payload to pass to the function.
     /// @param gasPayment The ETH amount sent with the transaction, forwarded to `owner`.
+    /// @param jobId Unique monotonically increasing identifier for the job.
     event FunctionInvoked(
-        uint256 indexed jobId,
         address indexed caller,
-        bytes32 functionId,
+        bytes32 indexed functionId,
         bytes data,
-        uint256 gasPayment
+        uint256 gasPayment,
+        uint256 jobId
     );
 
     /// @notice Owner of the bridge (the ICP canister).
@@ -50,11 +50,11 @@ contract FrostyBridge {
         jobId = nextJobId++;
         
         emit FunctionInvoked(
-            jobId,
             msg.sender,
             functionId,
             data,
-            msg.value
+            msg.value,
+            jobId
         );
         
         payable(owner).transfer(msg.value);
