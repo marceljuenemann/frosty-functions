@@ -1,13 +1,16 @@
+mod evm;
+mod job;
+mod chain;
+
 use candid::Principal;
 use evm_rpc_client::EvmRpcClient;
 use evm_rpc_types::{RpcServices, BlockTag, Hex20};
 use std::collections::HashMap;
 use std::cell::RefCell;
 use wasmi::*;
-mod job;
-mod chain;
+
 use chain::{ChainState};
-use crate::job::Job;
+use evm::tmp_get_logs;
 
 thread_local! {
     // Stores the state related to each blockchain we support.
@@ -256,40 +259,5 @@ fn add_chain(chain_id: String, bridge_contract: String) -> Result<bool, String> 
 async fn evm_get_logs(
     contract_address: String,
 ) -> Result<String, String> {
-    // Get the local EVM RPC canister ID from dfx.json (evm_rpc)
-    let evm_rpc_canister = Principal::from_text("7hfb6-caaaa-aaaar-qadga-cai")
-        .map_err(|e| format!("Invalid canister ID: {}", e))?;
-
-    // Build client with custom localhost URL and local canister ID
-    let client = EvmRpcClient::builder(
-            evm_rpc_client::IcRuntime,
-            evm_rpc_canister,
-        )
-        .with_rpc_sources(RpcServices::Custom {
-            chain_id: 31337, // Local hardhat/anvil chain ID
-            services: vec![evm_rpc_types::RpcApi {
-                url: "http://127.0.0.1:8545".to_string(),
-                headers: None,
-            }],
-        })
-        .build();
-
-    // Convert address string to Hex20
-    let address_hex: Hex20 = contract_address
-        .parse()
-        .map_err(|e| format!("Invalid contract address: {:?}", e))?;
-
-    // Build GetLogsArgs using the From implementation (pass iterator of addresses)
-    let mut filter = evm_rpc_types::GetLogsArgs::from(vec![address_hex]);
-    filter.from_block = Some(BlockTag::Earliest);
-    filter.to_block = Some(BlockTag::Latest);
-
-    // Call getLogs and send the request
-    let result = client
-        .get_logs(filter)
-        .send()
-        .await;
-
-    // Format result as JSON-like string
-    Ok(format!("{:?}", result))
+    tmp_get_logs(contract_address).await
 }
