@@ -1,8 +1,10 @@
+use alloy_sol_types::abi::token::WordToken;
 use evm_rpc_client::CandidResponseConverter;
 use evm_rpc_client::EvmRpcClient;
 use evm_rpc_client::IcRuntime;
 use evm_rpc_client::NoRetry;
 use evm_rpc_types::Hex;
+use evm_rpc_types::Hex32;
 use evm_rpc_types::LogEntry;
 use evm_rpc_types::RpcError;
 use evm_rpc_types::{BlockTag, Hex20, RpcServices};
@@ -14,15 +16,6 @@ use serde::Serialize;
 sol! {
     #[derive(Debug)]
     event FunctionInvoked(address indexed caller, bytes32 indexed functionId, bytes data, uint256 gasPayment, uint256 jobId);
-}
-
-#[derive(Debug, Serialize)]
-struct DecodedEvent {
-    caller: String,
-    function_id: String,
-    data: String,
-    gas_payment_wei: String,
-    job_id: String,
 }
 
 pub async fn tmp_get_logs(contract_address: String) -> Result<String, String> {
@@ -71,7 +64,7 @@ pub async fn tmp_get_logs(contract_address: String) -> Result<String, String> {
     //serde_json::to_string(&decoded).map_err(|e| format!("Serialize error: {e}"))
 }
 
-fn decode_invocation_event(event: &LogEntry) -> Option<DecodedEvent> {
+fn decode_invocation_event(event: &LogEntry) -> Option<String> {
     ic_cdk::println!("Decoding event: {:?}", event);
 
     ic_cdk::println!("Data event: {:?}", event.data);
@@ -80,18 +73,27 @@ fn decode_invocation_event(event: &LogEntry) -> Option<DecodedEvent> {
     let decoded = FunctionInvoked::abi_decode_data(data_bytes, true);
     ic_cdk::println!("Decoded data: {:?}", decoded);
 
+    let topics_bytes = event.topics.iter().map(hex_to_b256).collect::<Vec<_>>();
+    let decoded_topics = FunctionInvoked::decode_topics(topics_bytes.clone());
+    ic_cdk::println!("Decoded topics: {:?}", decoded_topics);
+
+    let result = FunctionInvoked::decode_raw_log(topics_bytes.clone(), data_bytes, true);
+    ic_cdk::println!("Decoded raw log: {:?}", result);
+
+
     //let topics = FunctionInvoked::decode_log(event, true);
     //ic_cdk::println!("Decoded topics: {:?}", topics);
 
     None
 }
 
-fn hex_to_b256(s: &str) -> Option<B256> {
-    let s = s.strip_prefix("0x").unwrap_or(s);
-    if s.len() != 64 { return None; }
+fn hex_to_b256(hex: &Hex32) -> WordToken {
     let mut bytes = [0u8; 32];
-    hex::decode_to_slice(s, &mut bytes).ok()?;
-    Some(B256::from(bytes))
+    // Hex32 to_string() gives us the hex string with "0x" prefix, so strip it
+    let hex_str = hex.to_string();
+    let hex_str = hex_str.strip_prefix("0x").unwrap_or(&hex_str);
+    hex::decode_to_slice(hex_str, &mut bytes).unwrap();  // TODO: Catch error?
+    WordToken(B256::from(bytes))
 }
 
 fn create_client(chain_id: u64) -> EvmRpcClient<IcRuntime, CandidResponseConverter, NoRetry> {
