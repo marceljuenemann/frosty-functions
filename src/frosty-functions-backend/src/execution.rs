@@ -1,7 +1,7 @@
-use crate::state::read_chain_state;
+use evm_rpc_types::Nat256;
+use wasmi::{Engine, Func, Linker, Module, Store};
 
-
-
+use crate::{job::JobRequest, state::read_chain_state};
 
 pub async fn execute_job(chain_id: String, job_id: u64) -> Result<(), String> {
     let request = read_chain_state(&chain_id, |state| {
@@ -9,55 +9,56 @@ pub async fn execute_job(chain_id: String, job_id: u64) -> Result<(), String> {
             .ok_or_else(|| format!("Job not found: {}", job_id))
             .map(|job| job.request.clone())
     })?;
+    let binary = include_bytes!("../../assembly-playground/build/debug.wasm");
     
-    // TODO: Set status to "in progress".
-    // TODO: Replace ic_cdk::println with custom logging to the job logs.
-    ic_cdk::println!("Executing job: {:?} {:?}", chain_id, job_id);
-    Ok(())
+    // TODO: Verify status is "pending" and set to "in progress".
+
+    execute_binary(&request, binary).await
 }
 
-/*
-
-fn exec_wasm_with_limit(max_instructions: u64) -> Result<(i64, u64), String> {
-    ic_cdk::println!("Loading WASM module...");
-    let wasm = include_bytes!("../../assembly-playground/build/debug.wasm");
-    
-    // Create engine with fuel consumption enabled
+// TODO: Return an Execution error that can be logged.
+async fn execute_binary(request: &JobRequest, wasm: &[u8]) -> Result<(), String> {
     let mut config = wasmi::Config::default();
     config.consume_fuel(true);
     let engine = Engine::new(&config);
-    
-    let module = Module::new(&engine, &wasm[..]).unwrap();
-    ic_cdk::println!("WASM module loaded, setting up linker...");
-    let mut linker = <wasmi::Linker<()>>::new(module.engine());
+
+    let module = Module::new(&engine, &wasm[..]).map_err(|e| format!("Failed to load WASM module: {}", e))?;
     let mut store = wasmi::Store::new(module.engine(), ());
-    
-    // Set instruction limit (fuel)
-    store.set_fuel(max_instructions).map_err(|e| format!("Failed to set fuel: {}", e))?;
-    ic_cdk::println!("Set instruction limit to {} instructions", max_instructions);
+    // TODO: Set instruction limit (fuel) based on available gas.
+    store.set_fuel(1_000_000).map_err(|e| format!("Failed to set fuel: {}", e))?;
 
-    // Register host functions that AssemblyScript can import
-    linker
-        .define("env", "ic_time_host", Func::wrap(&mut store, ic_time_host))
-        .map_err(|e| format!("Failed to define ic_time: {}", e))?;
-    linker
-        .define("env", "ic_random_host", Func::wrap(&mut store, ic_random_host))
-        .map_err(|e| format!("Failed to define ic_random: {}", e))?;
-    
-    // Standard AssemblyScript runtime functions
-    linker
-        .define("env", "abort", Func::wrap(&mut store, abort_host))
-        .map_err(|e| format!("Failed to define abort: {}", e))?;
-    linker
-        .define("env", "console.log", Func::wrap(&mut store, console_log_host))
-        .map_err(|e| format!("Failed to define console.log: {}", e))?;
-    
-    let instance = linker
-        .instantiate(&mut store, &module)
-        .unwrap()
+    let mut linker = <wasmi::Linker<()>>::new(module.engine());
+    register_host_functions(&mut linker, &mut store)?;
+
+    // TODO: Replace ic_cdk::println with custom logging to the job logs.
+    ic_cdk::println!("Executing job: {:?}", request.on_chain_id);
+    let instance = linker.instantiate(&mut store, &module)
+        .map_err(|e| format!("Failed to instantiate WASM module: {}", e))?
         .start(&mut store)
-        .unwrap();
+        .map_err(|e| format!("Failed to start WASM module: {}", e))?;
 
+    
+
+
+    Err("Not implemented".to_string())
+}
+
+fn register_host_functions(linker: &mut Linker<()>, store: &mut Store<()>) -> Result<(), String> {
+    linker
+        .define("env", "example_host_function", Func::wrap(store, example_host_function))
+        .map_err(|e| format!("Failed to define example_host_function: {}", e))?;
+    Ok(())
+}
+    
+fn example_host_function() -> i64 {
+    ic_cdk::println!("example_host_function invoked");
+    ic_cdk::api::time() as i64
+}
+
+
+    /*
+
+fn exec_wasm_with_limit(max_instructions: u64) -> Result<(i64, u64), String> {
     ic_cdk::println!("Executing WASM function...");
     
     let run = instance.get_typed_func::<(), i64>(&store, "run").unwrap();
