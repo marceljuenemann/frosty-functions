@@ -1,20 +1,13 @@
 mod evm;
 mod job;
 mod chain;
+mod state;
 
-use std::collections::HashMap;
-use std::cell::RefCell;
 use evm_rpc_types::Hex20;
 use wasmi::*;
 
 use chain::{ChainState, Address};
-
-thread_local! {
-    // Stores the state related to each blockchain we support.
-    // NOTE: The canister should be non-upgradeable for security reasons. However,
-    // we might still want to move this to stable memory for development purposes.
-    static CHAIN_MAP: RefCell<HashMap<String, ChainState>> = RefCell::new(HashMap::new());
-}
+use state::{mutate_state};
 
 // Host functions that will be available to AssemblyScript
 fn ic_time_host() -> i64 {
@@ -212,36 +205,13 @@ fn greet(name: String) -> String {
 /// Returns Ok(true) if new jobs were synced.
 #[ic_cdk::update]
 async fn sync_chain(chain_id: String) -> Result<bool, String> {
-    let (bridge_address, synced_block_number) = CHAIN_MAP.with_borrow(|map| {
-        map.get(&chain_id)
-            .map(|state| (state.bridge_address.clone(), state.synced_block_number))
-            .ok_or_else(|| format!("Chain not supported: {}", chain_id))
-    })?;
+    let jobs = crate::chain::fetch_jobs(chain_id.clone()).await?;
 
-    // TODO: Move this code into fetch_jobs in chain.rs
-    // Parse chain ID to get numeric ID for EVM
-    let chain_id_num = match chain_id.strip_prefix("eip155:") {
-        Some(num_str) => num_str.parse::<u64>()
-            .map_err(|_| format!("Invalid chain ID format: {}", chain_id))?,
-        None => return Err(format!("Unsupported chain ID format: {}", chain_id)),
-    };
-
-    // Do async work without holding any borrow
-    let contract_address = match &bridge_address {
-        Address::EvmAddress(addr) => addr.to_string(),
-    };
-    let since_block = synced_block_number.unwrap_or(0);
-    let jobs = crate::evm::fetch_jobs(chain_id_num, contract_address, since_block).await?;
-
-    // Update state with results
-    CHAIN_MAP.with_borrow_mut(|map| {
-        if let Some(state) = map.get_mut(&chain_id) {
-            for job in jobs {
-                ic_cdk::println!("Fetched job: {:?}", job);
-                // TODO: Store jobs in state.jobs and update state.synced_block_number
-            }
-        }
-    });
+    // TODO: Update state with results
+    for job in jobs {
+        ic_cdk::println!("Fetched job: {:?}", job);
+        // TODO: Store jobs in state.jobs and update state.synced_block_number
+    }
 
     Ok(false)
 }
@@ -253,14 +223,14 @@ fn add_chain(chain_id: String, bridge_contract: String) -> Result<bool, String> 
     // TODO: Check that caller is a controller.
     match chain_id.as_str() {
         "eip155:31337" => {
-            CHAIN_MAP.with_borrow_mut(|map| {
-                if map.contains_key(&chain_id) {
+            mutate_state(|state| {
+                if state.chains.contains_key(&chain_id) {
                     Err("Chain already exists".to_string())
                 } else {
                     let bridge_address: Hex20 = bridge_contract.parse()
                         .map_err(|e| format!("Invalid bridge contract address: {}", e))?;
                     let chain_state = ChainState::new(chain_id.clone(), Address::EvmAddress(bridge_address));
-                    map.insert(chain_id.clone(), chain_state);
+                    state.chains.insert(chain_id.clone(), chain_state);
                     Ok(true)
                 }
             })

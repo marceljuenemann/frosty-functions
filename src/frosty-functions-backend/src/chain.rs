@@ -1,9 +1,9 @@
 
-use std::collections::HashMap;
+use std::{collections::HashMap};
 
 use evm_rpc_types::Hex20;
 
-use crate::{evm::fetch_jobs, job::Job};
+use crate::{job::{Job, JobRequest}, state::read_state};
 
 /// Stores all state related to a specific blockchain.
 pub struct ChainState {
@@ -38,29 +38,6 @@ impl ChainState {
             job_queue: Vec::new(),
         }
     }
-
-    /// Fetches new jobs from the chain asynchronously without updating the state.
-    /// TODO: Change return type to Vec<Job> and latest block.
-    pub async fn fetch_jobs(&self) -> Result<bool, String> {
-        match self.chain_id.as_str() {
-            // TODO: Support all EVM chains here.
-            "eip155:31337" => {
-                ic_cdk::println!("Syncing chain: {}", self.chain_id);
-                let contract_address = match &self.bridge_address {
-                    Address::EvmAddress(addr) => addr.to_string(),
-                };
-
-                // TODO: Only fetch new logs.
-                let jobs = fetch_jobs(31337, contract_address, 0).await?;
-                for job in jobs.into_iter() {
-                    ic_cdk::println!("Fetched job: {:?}", job);
-                }
-
-                Ok(false)
-            }
-            _ => Err(format!("Unsupported chain id: {}", self.chain_id)),
-        }
-    }
 }
 
 
@@ -69,3 +46,27 @@ impl ChainState {
 pub enum Address {
     EvmAddress(Hex20)
 } 
+
+/// Fetches new jobs from the given chain.
+/// TODO: Change return type to Vec<Job> and latest block.
+pub async fn fetch_jobs(chain_id: String) -> Result<Vec<JobRequest>, String> {
+    match chain_id.as_str() {
+        // TODO: Support all EVM chains here.
+        "eip155:31337" => {
+            let (bridge_address, synced_block_number) = read_state(|state| {
+                state.chains.get(&chain_id)
+                    .map(|state| (state.bridge_address.clone(), state.synced_block_number))
+                    .ok_or_else(|| format!("Chain not supported: {}", chain_id))
+            })?;
+            let bridge_address = match &bridge_address {
+                Address::EvmAddress(addr) => addr.to_string(),
+            };
+            let evm_chain_id = 31337;  // TODO: Parse from chain_id
+            let since_block = synced_block_number.map(|block| block + 1).unwrap_or(0);
+
+            let jobs = crate::evm::fetch_jobs(evm_chain_id, bridge_address, since_block).await?;
+            Ok(jobs)
+        }
+        _ => Err(format!("Unsupported chain id: {}", chain_id)),
+    }
+}
