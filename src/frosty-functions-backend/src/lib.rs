@@ -1,15 +1,15 @@
-mod evm;
-mod job;
 mod chain;
+mod evm;
+mod execution;
+mod job;
 mod state;
+
+use chain::{ChainState, Address};
+use job::Job;
+use state::{mutate_state};
 
 use evm_rpc_types::Hex20;
 use wasmi::*;
-
-use chain::{ChainState, Address};
-use state::{mutate_state};
-
-use crate::job::Job;
 
 // Host functions that will be available to AssemblyScript
 fn ic_time_host() -> i64 {
@@ -210,6 +210,11 @@ fn get_job_info(chain_id: String, job_id: u64) -> Result<Job, String> {
             .cloned()
             .ok_or_else(|| format!("Job not found: {}", job_id))
     })
+}
+
+#[ic_cdk::query]
+async fn execute_job(chain_id: String, job_id: u64) -> Result<(), String> {
+    crate::execution::execute_job(chain_id, job_id).await
 }
 
 /// Fetches new jobs from the specified chain.
