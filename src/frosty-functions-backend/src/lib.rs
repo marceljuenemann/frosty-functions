@@ -9,6 +9,8 @@ use wasmi::*;
 use chain::{ChainState, Address};
 use state::{mutate_state};
 
+use crate::job::Job;
+
 // Host functions that will be available to AssemblyScript
 fn ic_time_host() -> i64 {
     ic_cdk::api::time() as i64
@@ -199,6 +201,15 @@ fn run_wasm_with_limit(max_instructions: u64) -> String {
 #[ic_cdk::query]
 fn greet(name: String) -> String {
     format!("Hello, {}!", name)
+}
+
+#[ic_cdk::query]
+fn get_job_info(chain_id: String, job_id: u64) -> Result<Job, String> {
+    state::read_chain_state(&chain_id, |state| {
+        state.jobs.get(&job_id)
+            .cloned()
+            .ok_or_else(|| format!("Job not found: {}", job_id))
+    })
 }
 
 /// Fetches new jobs from the specified chain.

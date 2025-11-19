@@ -1,11 +1,13 @@
+use candid::CandidType;
 use evm_rpc_types::{Hex32, Nat256};
+use serde::{Deserialize, Serialize};
 
 use crate::chain::Address;
 
 /// Request for executing a function. Currently these are created from EVM logs,
 /// but in the future they could also come from other sources such as other chains,
 /// recursive invocations etc.
-#[derive(Debug)]
+#[derive(Debug, Clone, CandidType, Serialize, Deserialize)]
 pub struct JobRequest {
     /// Chain ID in CAIP-2 format (e.g., "eip155:1" for Ethereum mainnet)
     pub chain_id: String,
@@ -30,7 +32,8 @@ pub struct JobRequest {
 }
 
 /// Job with metadata and execution state.
-#[derive(Debug)]
+#[derive(Debug, Clone, CandidType, Serialize, Deserialize)]
 pub struct Job {
     pub request: JobRequest,
+    // TODO: Add status, timestamps, logs, gas used etc.
 }

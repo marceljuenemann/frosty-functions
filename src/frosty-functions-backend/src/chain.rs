@@ -42,7 +42,7 @@ impl ChainState {
 
 
 /// A generic address type that can represent addresses from different blockchain types.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, candid::CandidType, serde::Serialize, serde::Deserialize)]
 pub enum Address {
     EvmAddress(Hex20)
 } 
