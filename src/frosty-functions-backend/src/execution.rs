@@ -17,7 +17,17 @@ pub async fn execute_job(chain_id: String, job_id: u64) -> Result<(), String> {
     // TODO: Verify status is "pending" and set to "in progress".
 
     let mut execution = JobExecution::init(request.clone(), binary)?;
-    execution.call("main".to_string()).await
+    let task_main = execution.call("main".to_string());
+    let task_async = example_async();
+
+    ic_cdk::println!("Waiting for task_main");
+    task_main.await?;
+    ic_cdk::println!("Done waiting for task_main");
+    ic_cdk::println!("Waiting for task_async");
+    task_async.await?;
+    ic_cdk::println!("Done waiting for task_async");
+
+    Ok(())
 }
 
 /// Runtime state for a job execution.
@@ -72,6 +82,7 @@ impl JobExecution {
                     // Execution completed successfully
                     let remaining_fuel = self.store.get_fuel().unwrap_or(0);
                     let fuel_consumed = FUEL_PER_BATCH - remaining_fuel;
+                    // TODO: Move this away.
                     ic_cdk::println!("Execution completed. Fuel consumed: {:?}", fuel_consumed);
                     return Ok(());
                 }
@@ -99,4 +110,10 @@ fn register_host_functions(linker: &mut Linker<()>, store: &mut Store<()>) -> Re
 fn example_host_function() -> i64 {
     ic_cdk::println!("example_host_function invoked");
     ic_cdk::api::time() as i64
+}
+
+async fn example_async() -> Result<i32, String> {
+    ic_cdk::println!("example_async invoked");
+    crate::chain::sync_chain("eip155:31337".to_string()).await?;
+    Ok(42)
 }

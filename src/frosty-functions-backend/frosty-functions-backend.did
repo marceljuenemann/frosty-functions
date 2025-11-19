@@ -21,13 +21,10 @@ service : {
   // Currently supports only specific EVM chains (namespace "eip155").
   add_chain : (text, text) -> (Result);
   evm_get_logs : (text) -> (Result_1);
-  execute_job : (text, nat64) -> (Result_2) query;
+  execute_job : (text, nat64) -> (Result_2);
   get_job_info : (text, nat64) -> (Result_3) query;
   // Returns IDs of jobs currently in the queue for processing.
   get_queue : (text) -> (Result_4) query;
-  greet : (text) -> (text) query;
-  run_wasm : () -> (text);
-  run_wasm_with_limit : (nat64) -> (text);
   // Fetches new jobs from the specified chain.
   // Returns Ok(true) if new jobs were synced.
   sync_chain : (text) -> (Result);

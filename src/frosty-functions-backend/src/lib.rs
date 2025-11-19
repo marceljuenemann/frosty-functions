@@ -71,7 +71,7 @@ fn get_job_info(chain_id: String, job_id: u64) -> Result<Job, String> {
     })
 }
 
-#[ic_cdk::query]
+#[ic_cdk::update]
 async fn execute_job(chain_id: String, job_id: u64) -> Result<(), String> {
     crate::execution::execute_job(chain_id, job_id).await
 }
