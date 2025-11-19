@@ -23,9 +23,9 @@ This proof of concept demonstrates:
 
 Inspired by [icp-evm-coprocessor-starter](https://github.com/letmejustputthishere/icp-evm-coprocessor-starter)
 
-## Local testing
+## Local development
 
-### Using anvil and remix
+### Testing using anvil and remix
 
 * Start `anvil`
 * Launch https://remix.ethereum.org/
@@ -41,4 +41,12 @@ Inspired by [icp-evm-coprocessor-starter](https://github.com/letmejustputthisher
 * You can view logged events with `cast logs --rpc-url http://localhost:854
 5 --address 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9 --from-block 0 --to-block latest` (replace address with contract address)
 
+### Regenerate candid interface
 
+See instructions [here](https://internetcomputer.org/docs/building-apps/developer-tools/cdks/rust/generating-candid#option-1-automatic-generation-using-generate-did-crate). There seems to be some issue with finding the right WASM file though, so I currently run
+
+```
+generate-did frosty-functions-backend
+cp target/wasm32-unknown-unknown/release/frosty_functions_backend.wasm target/wasm32-unknown-unknown/release/frosty-functions-backend.wasm 
+generate-did frosty-functions-backend
+```

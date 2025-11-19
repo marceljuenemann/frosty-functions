@@ -1,0 +1,47 @@
+// CAIP-2 chain identifier: "<namespace>:<reference>"
+// Examples: "eip155:1" (Ethereum), "bip122:000000000019d6689c085ae165831e93" (Bitcoin)
+// See https://github.com/ChainAgnostic/CAIPs/blob/main/CAIPs/caip-2.md
+type ChainId = text;
+
+type FailureReason = variant {
+  FunctionNotFound;      // No function with the given ID
+  InvalidModule;         // Wasm module is invalid or malformed
+  OutOfGas;              // Ran out of gas during execution
+  UncaughtException;     // Uncaught exception in user code
+  SystemError;           // Something that should not happen.
+};
+
+type JobStatus = variant {
+  // Job was added to the queue, but not yet processed.
+  Pending;
+
+  // Job is currently being executed.
+  Processing;
+  
+  // Job completed without errors.
+  Completed;
+
+  // Job execution failed.
+  Failed: record { error: FailureReason };
+};
+
+service : {
+  // Adds support for a new chain. Can only be called by the canister owner.
+  "add_chain": (ChainId, text) -> (variant { Ok: bool; Err: text });
+    
+  // Syncs job requests from the specified chain.
+  // Returns true if new job requests were synced.
+  "sync_chain": (ChainId) -> (variant { Ok: bool; Err: text });
+
+  // "get_queue": () -> (vec record { chain: ChainId; job_id: nat; code_hash: text }) query;
+  // "process_queue": (opt nat32) -> (ProcessResult);
+  
+  // Job inspection
+  // "get_job_status": (ChainId, nat) -> (opt JobStatus) query;
+  //"get_job_logs": (ChainId, nat, nat64) -> (vec text) query;
+
+  // Legacy
+  "greet": (text) -> (text) query;
+  "run_wasm": () -> (text);
+  "evm_get_logs": (text) -> (variant { Ok: text; Err: text });
+}

@@ -249,3 +249,6 @@ async fn evm_get_logs(
 //    tmp_get_logs(contract_address).await
     Err("Not implemented".to_string())
 }
+
+// Enable Candid export
+ic_cdk::export_candid!();
