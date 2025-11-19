@@ -47,7 +47,7 @@ pub async fn fetch_jobs(chain_id: u64, contract_address: String, since_block: u6
 
 fn jobs_from_events(chain_id: u64, events: Vec<LogEntry>) -> Result<Vec<JobRequest>, String> {
     let mut jobs = Vec::new();
-    for event in events.iter() {
+    for event in events.iter().rev() {
         match decode_function_invocation(event) {
             Ok(func_invoked) => {
                 let job_id_bytes = func_invoked.jobId.to_be_bytes::<32>();

@@ -3,7 +3,7 @@ use std::{collections::HashMap};
 
 use evm_rpc_types::Hex20;
 
-use crate::{job::{Job, JobRequest}, state::read_state};
+use crate::{job::{Job, JobRequest}, state::{mutate_chain_state, mutate_state, read_chain_state, read_state}};
 
 /// Stores all state related to a specific blockchain.
 pub struct ChainState {
@@ -47,20 +47,40 @@ pub enum Address {
     EvmAddress(Hex20)
 } 
 
+/// Syncs the given chain up to the latest block.
+/// Returns true if new jobs were created.
+pub async fn sync_chain(chain_id: String) -> Result<bool, String> {
+    // TODO: Return and update latest block number.
+    let new_jobs = fetch_jobs(chain_id.clone()).await?;
+    let has_jobs = !new_jobs.is_empty();
+    mutate_chain_state(&chain_id, |state| {
+        for job_request in new_jobs {
+            // TODO: on_chain_id is not the best key as it could be duplicate due to re-orgs.
+            // It might also be absent for non-EVM chains.
+            let job_id = u64::try_from(job_request.on_chain_id.clone().unwrap()).unwrap();
+            if state.jobs.contains_key(&job_id) {
+                ic_cdk::println!("ERROR: Job already exists: {:?} {:?}", chain_id, &job_id);
+            } else {
+                state.jobs.insert(job_id, Job { request: job_request });
+                state.job_queue.push(job_id);
+            }
+        }
+        Ok(has_jobs)
+    })
+}
+
 /// Fetches new jobs from the given chain.
-/// TODO: Change return type to Vec<Job> and latest block.
-pub async fn fetch_jobs(chain_id: String) -> Result<Vec<JobRequest>, String> {
+async fn fetch_jobs(chain_id: String) -> Result<Vec<JobRequest>, String> {
     match chain_id.as_str() {
         // TODO: Support all EVM chains here.
         "eip155:31337" => {
-            let (bridge_address, synced_block_number) = read_state(|state| {
-                state.chains.get(&chain_id)
-                    .map(|state| (state.bridge_address.clone(), state.synced_block_number))
-                    .ok_or_else(|| format!("Chain not supported: {}", chain_id))
+            let (bridge_address, synced_block_number) = read_chain_state(&chain_id, |state| {
+                match &state.bridge_address {
+                    Address::EvmAddress(addr) => {
+                        Ok((addr.to_string(), state.synced_block_number))
+                    }
+                }
             })?;
-            let bridge_address = match &bridge_address {
-                Address::EvmAddress(addr) => addr.to_string(),
-            };
             let evm_chain_id = 31337;  // TODO: Parse from chain_id
             let since_block = synced_block_number.map(|block| block + 1).unwrap_or(0);
 

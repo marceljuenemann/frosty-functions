@@ -201,19 +201,19 @@ fn greet(name: String) -> String {
     format!("Hello, {}!", name)
 }
 
-/// Sync jobs from the specified chain.
+/// Fetches new jobs from the specified chain.
 /// Returns Ok(true) if new jobs were synced.
 #[ic_cdk::update]
 async fn sync_chain(chain_id: String) -> Result<bool, String> {
-    let jobs = crate::chain::fetch_jobs(chain_id.clone()).await?;
+    crate::chain::sync_chain(chain_id).await
+}
 
-    // TODO: Update state with results
-    for job in jobs {
-        ic_cdk::println!("Fetched job: {:?}", job);
-        // TODO: Store jobs in state.jobs and update state.synced_block_number
-    }
-
-    Ok(false)
+/// Returns IDs of jobs currently in the queue for processing.
+#[ic_cdk::query]
+async fn get_queue(chain_id: String) -> Result<Vec<u64>, String> {
+    state::read_chain_state(&chain_id, |state| {
+        Ok(state.job_queue.clone())
+    })
 }
 
 /// Adds a supported chain by its CAIP-2 chain id. Only the owner may call this.
