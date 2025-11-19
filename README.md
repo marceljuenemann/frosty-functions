@@ -19,6 +19,10 @@ This proof of concept demonstrates:
 - Compiling Assembly Script into wasm
 - Host functions to extend functionality
 
+## Technical Architecture
+
+Inspired by [icp-evm-coprocessor-starter](https://github.com/letmejustputthishere/icp-evm-coprocessor-starter)
+
 ## Local testing
 
 ### Using anvil and remix

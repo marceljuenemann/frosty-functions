@@ -1,16 +1,18 @@
+use alloy_sol_types::Error;
 use alloy_sol_types::abi::token::WordToken;
 use evm_rpc_client::CandidResponseConverter;
 use evm_rpc_client::EvmRpcClient;
 use evm_rpc_client::IcRuntime;
 use evm_rpc_client::NoRetry;
-use evm_rpc_types::Hex;
-use evm_rpc_types::Hex32;
-use evm_rpc_types::LogEntry;
-use evm_rpc_types::RpcError;
+use evm_rpc_types::ConsensusStrategy;
+use evm_rpc_types::{LogEntry};
+use evm_rpc_types::Nat256;
 use evm_rpc_types::{BlockTag, Hex20, RpcServices};
 use alloy_sol_types::{sol, SolEvent};
-use alloy_primitives::{B256, Bytes};
-use serde::Serialize;
+use alloy_primitives::B256;
+
+use crate::job::JobRequest;
+use crate::chain::Address;
 
 // Define the event with Alloy's sol! macro (must match Bridge.sol exactly)
 sol! {
@@ -18,89 +20,86 @@ sol! {
     event FunctionInvoked(address indexed caller, bytes32 indexed functionId, bytes data, uint256 gasPayment, uint256 jobId);
 }
 
-pub async fn tmp_get_logs(contract_address: String) -> Result<String, String> {
-    let client = create_client(31337);
-
-    // Convert address string to Hex20
-    let address_hex: Hex20 = contract_address
-        .parse()
-        .map_err(|e| format!("Invalid contract address: {:?}", e))?;
-
-    // Build GetLogsArgs using the From implementation (pass iterator of addresses)
+/// Fetches requested jobs from the EVM chain.
+///
+/// NOTE: This fetches jobs from unfinalized blocks that might be re-orged.
+pub async fn fetch_jobs(chain_id: u64, contract_address: String, since_block: u64) -> Result<Vec<JobRequest>, String> {
+    let client = create_client(chain_id);
+    let address_hex: Hex20 = contract_address.parse().map_err(|e| format!("Invalid address: {}", e))?;
     let mut filter = evm_rpc_types::GetLogsArgs::from(vec![address_hex]);
-    filter.from_block = Some(BlockTag::Earliest);
-    filter.to_block = Some(BlockTag::Latest);  // TODO: not safe?
+    filter.from_block = Some(BlockTag::Number(Nat256::from(since_block)));
+    filter.to_block = Some(BlockTag::Latest);
 
-    // Call getLogs and send the request
-    // TODO: Look in to the cycles consumption of this call
-    let result = client
-        .get_logs(filter)
-        .send()
-        .await;
-
-    // Collect decoded events (best-effort even if providers disagree)
-    match result {
+    // NOTE: Since we are fetching the latest block, inconsistent responses are more likely,
+    // so using a 2 out of 3 consensus strategy seems important.
+    match client.get_logs(filter).send().await {
         evm_rpc_types::MultiRpcResult::Consistent(Ok(events)) => {
-          // collect_decoded(res, &mut decoded);
-
-          for event in events {
-              decode_invocation_event(&event);
-          }
-          // res.map(op)
-        
-        
-        
+          return jobs_from_events(chain_id, events);
         }
-
-
-        // TODO: Handle as error
-        _ => {
-            return Err("Failed to get events from EVM RPC".to_string());
+        evm_rpc_types::MultiRpcResult::Consistent(Err(err)) => {
+            return Err(format!("EVM RPC error: {:?}", err));
+        }
+        evm_rpc_types::MultiRpcResult::Inconsistent(_) => {
+            return Err("Inconsistent responses from EVM RPC providers".to_string());
         }
     }
-
-    Ok(String::from("TBD"))
-
-    //serde_json::to_string(&decoded).map_err(|e| format!("Serialize error: {e}"))
 }
 
-fn decode_invocation_event(event: &LogEntry) -> Option<String> {
-    ic_cdk::println!("Decoding event: {:?}", event);
+fn jobs_from_events(chain_id: u64, events: Vec<LogEntry>) -> Result<Vec<JobRequest>, String> {
+    let mut jobs = Vec::new();
+    for event in events.iter() {
+        match decode_function_invocation(event) {
+            Ok(func_invoked) => {
+                let job_id_bytes = func_invoked.jobId.to_be_bytes::<32>();
+                let on_chain_id = Nat256::from_be_bytes(job_id_bytes);
+                
+                let gas_payment_bytes = func_invoked.gasPayment.to_be_bytes::<32>();
+                let gas_payment = Nat256::from_be_bytes(gas_payment_bytes);
 
-    ic_cdk::println!("Data event: {:?}", event.data);
-    // Convert the hex data in the log entry to Bytes using the local helper.
-    let data_bytes = event.data.as_ref();
-    let decoded = FunctionInvoked::abi_decode_data(data_bytes, true);
-    ic_cdk::println!("Decoded data: {:?}", decoded);
+                // Convert alloy Address (20 bytes) -> Hex20
+                let caller = Hex20::from(func_invoked.caller.into_array());
 
-    let topics_bytes = event.topics.iter().map(hex_to_b256).collect::<Vec<_>>();
-    let decoded_topics = FunctionInvoked::decode_topics(topics_bytes.clone());
-    ic_cdk::println!("Decoded topics: {:?}", decoded_topics);
+                // Convert alloy FixedBytes<32> -> Hex32
+                let function_hash = <[u8; 32]>::from(func_invoked.functionId);
 
-    let result = FunctionInvoked::decode_raw_log(topics_bytes.clone(), data_bytes, true);
-    ic_cdk::println!("Decoded raw log: {:?}", result);
-
-
-    //let topics = FunctionInvoked::decode_log(event, true);
-    //ic_cdk::println!("Decoded topics: {:?}", topics);
-
-    None
+                let job = JobRequest {
+                    chain_id: format!("eip155:{}", chain_id),
+                    block_hash: event.block_hash.clone(),
+                    block_number: event.block_number.clone(),
+                    transaction_hash: event.transaction_hash.clone(),
+                    on_chain_id: Some(on_chain_id),
+                    caller: Address::EvmAddress(caller),
+                    function_hash,
+                    data: func_invoked.data.to_vec(),
+                    gas_payment,
+                };
+                jobs.push(job);
+            }
+            Err(err) => {
+                return Err(format!("Failed to decode event: {:?}", err));
+            }
+        }
+    }
+    Ok(jobs)
 }
 
-fn hex_to_b256(hex: &Hex32) -> WordToken {
-    let mut bytes = [0u8; 32];
-    // Hex32 to_string() gives us the hex string with "0x" prefix, so strip it
-    let hex_str = hex.to_string();
-    let hex_str = hex_str.strip_prefix("0x").unwrap_or(&hex_str);
-    hex::decode_to_slice(hex_str, &mut bytes).unwrap();  // TODO: Catch error?
-    WordToken(B256::from(bytes))
+fn decode_function_invocation(event: &LogEntry) -> Result<FunctionInvoked, Error> {
+    let topics = event
+        .topics
+        .iter()
+        .map(|hex32| WordToken(B256::from(hex32.as_array())))
+        .collect::<Vec<_>>();
+    FunctionInvoked::decode_raw_log(topics, event.data.as_ref(), true)
 }
 
+/// Creates an EVM RPC client for the specified chain ID.
+/// 
+/// All calls are sent to three different providers and a 2 out of 3 consensus is required.
 fn create_client(chain_id: u64) -> EvmRpcClient<IcRuntime, CandidResponseConverter, NoRetry> {
     match chain_id {
         31337 => {
             // Use local EVM node for connecting to local chain.
-            return EvmRpcClient::builder_for_ic()
+            EvmRpcClient::builder_for_ic()
                 .with_rpc_sources(RpcServices::Custom {
                     chain_id: 31337,
                     services: vec![evm_rpc_types::RpcApi {
@@ -108,8 +107,15 @@ fn create_client(chain_id: u64) -> EvmRpcClient<IcRuntime, CandidResponseConvert
                         headers: None,
                     }],
                 })
-                .build();
+                .build()
         }
-        _ => return EvmRpcClient::builder_for_ic().build(),
-    };
+        _ => {
+            EvmRpcClient::builder_for_ic()
+                .with_consensus_strategy(ConsensusStrategy::Threshold {
+                    total: Some(3),
+                    min: 2,
+                })
+                .build()
+        }
+    }
 }
