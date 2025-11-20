@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
-use wasmi::{Engine, Func, Linker, Module, Store, core::TrapCode};
+use wasmi::{Caller, Engine, Func, Linker, Module, Store, TypedFunc, WasmParams, WasmResults, core::TrapCode};
 
-use crate::{job::{Job, JobRequest}, state::read_chain_state};
+use crate::{job::JobRequest, state::read_chain_state};
 
 const FUEL_PER_BATCH: u64 = 1_000_000;
 
@@ -17,7 +17,7 @@ pub async fn execute_job(chain_id: String, job_id: u64) -> Result<(), String> {
     // TODO: Verify status is "pending" and set to "in progress".
 
     let mut execution = JobExecution::init(request.clone(), binary)?;
-    let task_main = execution.call("main".to_string());
+    let task_main = execution.call_by_name("main".to_string());
     let task_async = example_async();
 
     ic_cdk::println!("Waiting for task_main");
@@ -26,11 +26,13 @@ pub async fn execute_job(chain_id: String, job_id: u64) -> Result<(), String> {
     ic_cdk::println!("Done waiting for task_main");
     log_current_state();
 
+    /*
     ic_cdk::println!("Waiting for task_async");
     log_current_state();
     task_async.await?;
     ic_cdk::println!("Done waiting for task_async");
     log_current_state();
+    */
 
     Ok(())
 }
@@ -40,10 +42,19 @@ fn log_current_state() {
     ic_cdk::println!("Call Context Instruction counter: {:?}", ic_cdk::api::call_context_instruction_counter());
 }
 
-/// Runtime state for a job execution.
-pub struct JobExecution {
+/// Runtime context available to host functions during execution.
+#[derive(Clone)]
+pub struct ExecutionContext {
     pub request: JobRequest,
-    pub store: wasmi::Store<()>,
+    // Queue of function references to invoke in the WASM module.
+    pub pending_callbacks: VecDeque<i32>,
+    // Add other fields as needed (logs, async results, etc.)
+}
+
+/// Runtime state for a job execution.
+// TODO: Maybe don't need this, inline into exeuction function again.
+pub struct JobExecution {
+    pub store: wasmi::Store<ExecutionContext>,
     pub instance: wasmi::Instance,
     // TODO: Keep a queue of callbacks to invoke and futures to poll.
 }
@@ -56,11 +67,17 @@ impl JobExecution {
         let engine = Engine::new(&config);
 
         let module = Module::new(&engine, &wasm[..]).map_err(|e| format!("Failed to load WASM module: {}", e))?;
-        let mut store = wasmi::Store::new(module.engine(), ());
+        
+        // Create store with execution context
+        let context = ExecutionContext {
+            request: request.clone(),
+            pending_callbacks: VecDeque::new(),
+        };
+        let mut store = wasmi::Store::new(module.engine(), context);
         // TODO: Set instruction limit (fuel) based on available gas.
         store.set_fuel(FUEL_PER_BATCH).map_err(|e| format!("Failed to set fuel: {}", e))?;
 
-        let mut linker = <wasmi::Linker<()>>::new(module.engine());
+        let mut linker = <wasmi::Linker<ExecutionContext>>::new(module.engine());
         register_host_functions(&mut linker, &mut store)?;
 
         // TODO: Replace ic_cdk::println with custom logging to the job logs.
@@ -73,21 +90,25 @@ impl JobExecution {
             .map_err(|e| format!("Failed to start WASM module: {}", e))?;
     
         Ok(Self {
-            request,
             store,
             instance,
         })
     }
 
-    /// Calls a function of the WASM module.
-    async fn call(&mut self, function_name: String) -> Result<(), String> {
+    /// Calls a function of the WASM module by name.
+    async fn call_by_name(&mut self, function_name: String) -> Result<(), String> {
         ic_cdk::println!("Executing WASM function {:?}...", function_name);
 
         // We interrupt and resume execution based on fuel consumption.
         let func = self.instance.get_typed_func::<(), ()>(&self.store, &function_name)
             .map_err(|e| format!("Failed to get function with name: {:?}", function_name))?;
+        self.call_func(func).await
+    }
+
+    /// Calls a function of the WASM module, handling fuel consumption and errors.
+    async fn call_func(&mut self, function: TypedFunc<(), ()>) -> Result<(), String> {
         loop {
-            match func.call(&mut self.store, ()) {
+            match function.call(&mut self.store, ()) {
                 Ok(()) => {
                     // Execution completed successfully
                     let remaining_fuel = self.store.get_fuel().unwrap_or(0);
@@ -110,7 +131,7 @@ impl JobExecution {
     }
 }
 
-fn register_host_functions(linker: &mut Linker<()>, store: &mut Store<()>) -> Result<(), String> {
+fn register_host_functions(linker: &mut Linker<ExecutionContext>, store: &mut Store<ExecutionContext>) -> Result<(), String> {
     linker
         .define("env", "abort", Func::wrap(&mut *store, abort_host))
         .map_err(|e| format!("Failed to define abort: {}", e))?;
@@ -131,13 +152,16 @@ fn abort_host(message_ptr: i32, file_ptr: i32, line: i32, column: i32) {
     ic_cdk::trap("AssemblyScript abort");
 }
 
-fn example_host_function() -> i64 {
-    ic_cdk::println!("example_host_function invoked");
+fn example_host_function(caller: Caller<ExecutionContext>) -> i64 {
+    let context = caller.data();
+    ic_cdk::println!("example_host_function invoked for job: {:?}", context.request.on_chain_id);
     ic_cdk::api::time() as i64
 }
 
-fn example_async_host_function(callback: i32) {
-    ic_cdk::println!("example_async_host_function invoked");
+fn example_async_host_function(mut caller: Caller<ExecutionContext>, callback: i32) {
+    ic_cdk::println!("example_async_host_function invoked with callback index: {}", callback);
+    caller.data_mut().pending_callbacks.push_back(callback);
+    ic_cdk::println!("Pending callbacks: {:?}", caller.data().pending_callbacks.len());
 }
 
 async fn example_async() -> Result<i32, String> {
