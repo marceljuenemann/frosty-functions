@@ -21,13 +21,23 @@ pub async fn execute_job(chain_id: String, job_id: u64) -> Result<(), String> {
     let task_async = example_async();
 
     ic_cdk::println!("Waiting for task_main");
+    log_current_state();
     task_main.await?;
     ic_cdk::println!("Done waiting for task_main");
+    log_current_state();
+
     ic_cdk::println!("Waiting for task_async");
+    log_current_state();
     task_async.await?;
     ic_cdk::println!("Done waiting for task_async");
+    log_current_state();
 
     Ok(())
+}
+
+fn log_current_state() {
+    ic_cdk::println!("Instruction counter: {:?}", ic_cdk::api::instruction_counter());
+    ic_cdk::println!("Call Context Instruction counter: {:?}", ic_cdk::api::call_context_instruction_counter());
 }
 
 /// Runtime state for a job execution.
@@ -102,14 +112,32 @@ impl JobExecution {
 
 fn register_host_functions(linker: &mut Linker<()>, store: &mut Store<()>) -> Result<(), String> {
     linker
-        .define("env", "example_host_function", Func::wrap(store, example_host_function))
+        .define("env", "abort", Func::wrap(&mut *store, abort_host))
+        .map_err(|e| format!("Failed to define abort: {}", e))?;
+    linker
+        .define("env", "example_host_function", Func::wrap(&mut *store, example_host_function))
         .map_err(|e| format!("Failed to define example_host_function: {}", e))?;
+    linker
+        .define("env", "example_async_host_function", Func::wrap(&mut *store, example_async_host_function))
+        .map_err(|e| format!("Failed to define example_async_host_function: {}", e))?;
     Ok(())
+}
+
+fn abort_host(message_ptr: i32, file_ptr: i32, line: i32, column: i32) {
+    // TODO: Dereference pointers.
+    ic_cdk::println!("AssemblyScript abort at {}:{} (msg={}, file={})", 
+                     line, column, message_ptr, file_ptr);
+    // TODO: Don't trap? Or update job status to "failed"?
+    ic_cdk::trap("AssemblyScript abort");
 }
 
 fn example_host_function() -> i64 {
     ic_cdk::println!("example_host_function invoked");
     ic_cdk::api::time() as i64
+}
+
+fn example_async_host_function(callback: i32) {
+    ic_cdk::println!("example_async_host_function invoked");
 }
 
 async fn example_async() -> Result<i32, String> {
