@@ -1,4 +1,4 @@
-// import { ic } from "./system";
+import { CALLDATA_SIZE, calldata } from "./frosty";
 
 // Global array to hold callback references, forcing them into the function table
 let callbackRegistry: (() => void)[] = [];
@@ -7,14 +7,16 @@ export function main(): void {
   console.log("Welcome to main()");
 
   console.log(`Calldata size is: ${CALLDATA_SIZE}`);
+  console.log(`Calldata is: ${calldata()}`);
 
-
+  /*
   let x = example_host_function();
   example_async( named_callback );
   example_async((): void => {
     console.log(`Async callback invoked! Host function returned`);
     example_host_function();
   });
+  */
 
   console.log("main() finished");
 }
@@ -31,12 +33,3 @@ function example_async(callback: () => void): void {
   let funcIndex = changetype<i32>(callback);
   example_async_host_function(funcIndex);
 }
-
-@external("❄️", "example_host_function")
-declare function example_host_function(): i64;
-
-@external("❄️", "example_async_host_function")
-declare function example_async_host_function(callback: i32): void;
-
-@external("❄️", "CALLDATA_SIZE")
-declare const CALLDATA_SIZE: i32;
