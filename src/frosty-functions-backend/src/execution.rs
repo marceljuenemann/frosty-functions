@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use wasmi::{Engine, Linker, Module, Store, TypedFunc, core::TrapCode};
 
 use crate::{job::JobRequest, state::read_chain_state};
-use crate::api::register_host_functions;
+use crate::api::{register_constants, register_host_functions};
 
 const FUEL_PER_BATCH: u64 = 1_000_000;
 
@@ -59,7 +59,6 @@ impl JobExecution {
         let mut config = wasmi::Config::default();
         config.consume_fuel(true);
         let engine = Engine::new(&config);
-
         let module = Module::new(&engine, &wasm[..]).map_err(|e| format!("Failed to load WASM module: {}", e))?;
         
         // Create store with execution context
@@ -71,10 +70,14 @@ impl JobExecution {
         // TODO: Set instruction limit (fuel) based on available gas.
         store.set_fuel(FUEL_PER_BATCH).map_err(|e| format!("Failed to set fuel: {}", e))?;
 
+        // Create linker with host functions and constants.
         let mut linker = <wasmi::Linker<ExecutionContext>>::new(module.engine());
+        register_constants(&mut linker, &mut store)
+            .map_err(|e| format!("Failed to register constants: {}", e))?;
         register_host_functions(&mut linker, &mut store)
             .map_err(|e| format!("Failed to register host functions: {}", e))?;
 
+        // Initialize and start the module instance.
         // TODO: Replace ic_cdk::println with custom logging to the job logs.
         ic_cdk::println!("Executing job: {:?}", request.on_chain_id);
         let instance = linker.instantiate(&mut store, &module)

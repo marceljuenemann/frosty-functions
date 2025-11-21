@@ -1,9 +1,20 @@
-use std::{cmp::min, usize::MIN};
+use std::{cmp::min};
 
-use wasmi::{Caller, Func, Linker, Store, errors::LinkerError};
+use wasmi::{Caller, Func, Global, Linker, Mutability, Store, Val, errors::LinkerError};
 use crate::execution::ExecutionContext;
 
 const CONSOLE_LOG_MAX_LEN: usize = 10_000;
+
+/// Registers all constants into the given linker.
+pub fn register_constants(linker: &mut Linker<ExecutionContext>, store: &mut Store<ExecutionContext>) -> Result<(), LinkerError> {
+    let calldata_size = store.data().request.data.len() as i32;
+    linker.define("❄️", "CALLDATA_SIZE", Global::new(
+        &mut *store,
+        Val::I32(calldata_size),
+        Mutability::Const
+    ))?;
+    Ok(())
+}
 
 /// Registers all host functions into the given linker.
 pub fn register_host_functions(linker: &mut Linker<ExecutionContext>, store: &mut Store<ExecutionContext>) -> Result<(), LinkerError> {
