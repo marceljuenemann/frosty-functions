@@ -45,8 +45,6 @@ fn example_async_host_function(mut caller: Caller<ExecutionContext>, callback: i
 
 // TODO: Support console.error etc.
 fn console_log(caller: Caller<ExecutionContext>, message_ptr: i32) {
-    ic_cdk::println!("AssemblyScript console.log called with message_ptr: {}", message_ptr);
-    // TODO: Just cut off longer messages rather than trapping.
     let message = read_utf16_string(&caller, message_ptr, CONSOLE_LOG_MAX_LEN)
         // TODO: Return error?
         .unwrap_or_else(|e| format!("(failed to read log message: {})", e));

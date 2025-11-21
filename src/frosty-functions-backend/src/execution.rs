@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use wasmi::WasmParams;
 use wasmi::{Engine, Linker, Module, Store, TypedFunc, core::TrapCode};
 
 use crate::{job::JobRequest, state::read_chain_state};
@@ -114,46 +115,31 @@ impl JobExecution {
         // We interrupt and resume execution based on fuel consumption.
         let func = self.instance.get_typed_func::<(), ()>(&self.store, &function_name)
             .map_err(|e| format!("Failed to get function {:?}: {}", function_name, e))?;
-        self.call_func(func).await
+        self.call_func(func, ()).await
     }
 
     /// Calls a WASM function by table index (function reference).
     /// This is used for callbacks passed from WASM to host functions.
     async fn call_by_reference(&mut self, func_index: i32) -> Result<(), String> {
-        // TODO: Use a custom runtime instead that takes care of bridge functionality.
-        // Get the indirect function table
-        let table = self.instance
-            .get_table(&self.store, "table")
-            .ok_or("Table 'table' not found")?;
-        
-        // Look up the function in the table
-        let _func_ref = table
-            .get(&self.store, 1)
-            .ok_or_else(|| format!("Invalid function index: {}", func_index))?;
-        /*
-        // Extract the function reference and cast to typed function
-        let function = func_ref
-            .funcref()
-            .ok_or("Table entry is not a function reference")?
-            .typed::<(), ()>(&self.store)
-            .map_err(|e| format!("Invalid function signature: {}", e))?;
-        
-        // Call it using the standard execution flow
-        self.call_func(function).await
-        */
-        Err("call_by_reference not yet implemented".to_string())
+        ic_cdk::println!("Executing WASM callback {:?}...", func_index);
+
+        // We interrupt and resume execution based on fuel consumption.
+        // TODO: Allow rejection
+        let func = self.instance.get_typed_func::<(i32, i32), ()>(&self.store, "__frosty_resolve")
+            .map_err(|e| format!("Failed to get function {:?}: {}", "__frosty_resolve", e))?;
+        self.call_func(func, (func_index, 0)).await
     }
 
     /// Calls a function of the WASM module, handling fuel consumption and errors.
-    async fn call_func(&mut self, function: TypedFunc<(), ()>) -> Result<(), String> {
+    async fn call_func<Params: WasmParams>(&mut self, function: TypedFunc<Params, ()>, params: Params) -> Result<(), String> {
         loop {
-            match function.call(&mut self.store, ()) {
+            match function.call(&mut self.store, params) {
                 Ok(()) => {
                     // Execution completed successfully
                     let remaining_fuel = self.store.get_fuel().unwrap_or(0);
                     let fuel_consumed = FUEL_PER_BATCH - remaining_fuel;
                     // TODO: Move this away.
-                    ic_cdk::println!("Execution completed. Fuel consumed: {:?}", fuel_consumed);
+                    ic_cdk::println!("WASM call completed. Fuel consumed: {:?}", fuel_consumed);
                     return Ok(());
                 }
                 Err(e) => {

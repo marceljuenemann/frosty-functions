@@ -1,7 +1,4 @@
-import { CALLDATA_SIZE, calldata } from "./frosty";
-
-// Global array to hold callback references, forcing them into the function table
-let callbackRegistry: (() => void)[] = [];
+import { CALLDATA_SIZE, calldata, example_async } from "./frosty";
 
 export function main(): void {
   console.log("Welcome to main()");
@@ -9,27 +6,13 @@ export function main(): void {
   console.log(`Calldata size is: ${CALLDATA_SIZE}`);
   console.log(`Calldata is: ${calldata()}`);
 
-  /*
-  let x = example_host_function();
-  example_async( named_callback );
-  example_async((): void => {
+  example_async(() => {
     console.log(`Async callback invoked! Host function returned`);
-    example_host_function();
   });
-  */
 
   console.log("main() finished");
 }
 
 function named_callback(): void {
   console.log("named_callback invoked");
-}
-
-function example_async(callback: () => void): void {
-  // Store the callback in the array to ensure it's compiled and in the table
-  callbackRegistry.push(callback);
-  
-  // Get the function index from the last added callback
-  let funcIndex = changetype<i32>(callback);
-  example_async_host_function(funcIndex);
 }
