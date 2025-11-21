@@ -1,49 +1,36 @@
 // import { ic } from "./system";
 
-const CON = 32 * 34;
-
-// console.log(`CON is ${CON}`);
-
-// const TIME = example_host_function();
-
-export function add(a: i32, b: i32): i32 {
-  return a + b + i32(Math.abs(a - b));
-}
+// Global array to hold callback references, forcing them into the function table
+let callbackRegistry: (() => void)[] = [];
 
 export function main(): void {
+  console.log("Welcome to main()");
+
   let x = example_host_function();
+  example_async( named_callback );
   example_async((): void => {
-    //console.log(`Async callback invoked! Host function returned ${x}`);
+    console.log(`Async callback invoked! Host function returned`);
     example_host_function();
   });
-  
-  /*
-  const currentTime = ic.time();
-  const randomNum = ic.randomInt(100);
-  console.log(`Large fibonacci is ${fib(165500)}`);
-  return (currentTime << 32) + randomNum;
-  */
+
+  console.log("main() finished");
 }
 
-function fib(n: i32): i32 {
-  var a = 0, b = 1
-  if (n > 0) {
-    while (--n) {
-      let t = a + b
-      a = b
-      b = t
-    }
-    return b
-  }
-  return a
+function named_callback(): void {
+  console.log("named_callback invoked");
 }
 
 function example_async(callback: () => void): void {
-  example_async_host_function(changetype<i32>(callback));
+  // Store the callback in the array to ensure it's compiled and in the table
+  callbackRegistry.push(callback);
+  
+  // Get the function index from the last added callback
+  let funcIndex = changetype<i32>(callback);
+  example_async_host_function(funcIndex);
 }
 
-@external("env", "example_host_function")
+@external("❄️", "example_host_function")
 declare function example_host_function(): i64;
 
-@external("env", "example_async_host_function")
+@external("❄️", "example_async_host_function")
 declare function example_async_host_function(callback: i32): void;

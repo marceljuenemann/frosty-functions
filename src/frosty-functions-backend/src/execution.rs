@@ -1,46 +1,11 @@
 use std::collections::VecDeque;
 
-use wasmi::{Caller, Engine, Func, Linker, Module, Store, TypedFunc, WasmParams, WasmResults, core::TrapCode};
+use wasmi::{Engine, Linker, Module, Store, TypedFunc, core::TrapCode};
 
 use crate::{job::JobRequest, state::read_chain_state};
+use crate::api::register_host_functions;
 
 const FUEL_PER_BATCH: u64 = 1_000_000;
-
-pub async fn execute_job(chain_id: String, job_id: u64) -> Result<(), String> {
-    let request = read_chain_state(&chain_id, |state| {
-        state.jobs.get(&job_id)
-            .ok_or_else(|| format!("Job not found: {}", job_id))
-            .map(|job| job.request.clone())
-    })?;
-    let binary = include_bytes!("../../assembly-playground/build/debug.wasm");
-    
-    // TODO: Verify status is "pending" and set to "in progress".
-
-    let mut execution = JobExecution::init(request.clone(), binary)?;
-    let task_main = execution.call_by_name("main".to_string());
-    let task_async = example_async();
-
-    ic_cdk::println!("Waiting for task_main");
-    log_current_state();
-    task_main.await?;
-    ic_cdk::println!("Done waiting for task_main");
-    log_current_state();
-
-    /*
-    ic_cdk::println!("Waiting for task_async");
-    log_current_state();
-    task_async.await?;
-    ic_cdk::println!("Done waiting for task_async");
-    log_current_state();
-    */
-
-    Ok(())
-}
-
-fn log_current_state() {
-    ic_cdk::println!("Instruction counter: {:?}", ic_cdk::api::instruction_counter());
-    ic_cdk::println!("Call Context Instruction counter: {:?}", ic_cdk::api::call_context_instruction_counter());
-}
 
 /// Runtime context available to host functions during execution.
 #[derive(Clone)]
@@ -53,10 +18,39 @@ pub struct ExecutionContext {
 
 /// Runtime state for a job execution.
 // TODO: Maybe don't need this, inline into exeuction function again.
-pub struct JobExecution {
+struct JobExecution {
     pub store: wasmi::Store<ExecutionContext>,
     pub instance: wasmi::Instance,
     // TODO: Keep a queue of callbacks to invoke and futures to poll.
+}
+
+pub async fn execute_job(chain_id: String, job_id: u64) -> Result<(), String> {
+    let request = read_chain_state(&chain_id, |state| {
+        state.jobs.get(&job_id)
+            .ok_or_else(|| format!("Job not found: {}", job_id))
+            .map(|job| job.request.clone())
+    })?;
+    let binary = include_bytes!("../../assembly-playground/build/debug.wasm");
+    
+    // TODO: Verify status is "pending" and set to "in progress".
+
+    let mut execution = JobExecution::init(request.clone(), binary)?;
+    execution.execute().await?;
+
+    /*
+    ic_cdk::println!("Waiting for task_async");
+    log_current_state();
+    task_async.await?;
+    ic_cdk::println!("Done waiting for task_async");
+    log_current_state();
+    */
+
+    Ok(())
+}
+
+fn _log_current_state() {
+    ic_cdk::println!("Instruction counter: {:?}", ic_cdk::api::instruction_counter());
+    ic_cdk::println!("Call Context Instruction counter: {:?}", ic_cdk::api::call_context_instruction_counter());
 }
 
 impl JobExecution {
@@ -78,7 +72,8 @@ impl JobExecution {
         store.set_fuel(FUEL_PER_BATCH).map_err(|e| format!("Failed to set fuel: {}", e))?;
 
         let mut linker = <wasmi::Linker<ExecutionContext>>::new(module.engine());
-        register_host_functions(&mut linker, &mut store)?;
+        register_host_functions(&mut linker, &mut store)
+            .map_err(|e| format!("Failed to register host functions: {}", e))?;
 
         // TODO: Replace ic_cdk::println with custom logging to the job logs.
         ic_cdk::println!("Executing job: {:?}", request.on_chain_id);
@@ -88,11 +83,25 @@ impl JobExecution {
             .start(&mut store)
             // TODO: Might want to handle out of fuel errors differently here.
             .map_err(|e| format!("Failed to start WASM module: {}", e))?;
+            // TODO: Consider using --exportStart with asc to have a fully initialized module.
     
         Ok(Self {
             store,
             instance,
         })
+    }
+
+    /// Executes the main() function as well as any asynchronous callbacks.
+    async fn execute(&mut self) -> Result<(), String> {
+        self.call_by_name("main".to_string()).await?;
+
+        // Process any pending callbacks registered by host functions
+        while let Some(callback_index) = self.store.data_mut().pending_callbacks.pop_front() {
+            ic_cdk::println!("Executing callback with index: {}", callback_index);
+            self.call_by_reference(callback_index).await?;
+        }
+
+        Ok(())
     }
 
     /// Calls a function of the WASM module by name.
@@ -101,8 +110,35 @@ impl JobExecution {
 
         // We interrupt and resume execution based on fuel consumption.
         let func = self.instance.get_typed_func::<(), ()>(&self.store, &function_name)
-            .map_err(|e| format!("Failed to get function with name: {:?}", function_name))?;
+            .map_err(|e| format!("Failed to get function {:?}: {}", function_name, e))?;
         self.call_func(func).await
+    }
+
+    /// Calls a WASM function by table index (function reference).
+    /// This is used for callbacks passed from WASM to host functions.
+    async fn call_by_reference(&mut self, func_index: i32) -> Result<(), String> {
+        // TODO: Use a custom runtime instead that takes care of bridge functionality.
+        // Get the indirect function table
+        let table = self.instance
+            .get_table(&self.store, "table")
+            .ok_or("Table 'table' not found")?;
+        
+        // Look up the function in the table
+        let _func_ref = table
+            .get(&self.store, 1)
+            .ok_or_else(|| format!("Invalid function index: {}", func_index))?;
+        /*
+        // Extract the function reference and cast to typed function
+        let function = func_ref
+            .funcref()
+            .ok_or("Table entry is not a function reference")?
+            .typed::<(), ()>(&self.store)
+            .map_err(|e| format!("Invalid function signature: {}", e))?;
+        
+        // Call it using the standard execution flow
+        self.call_func(function).await
+        */
+        Err("call_by_reference not yet implemented".to_string())
     }
 
     /// Calls a function of the WASM module, handling fuel consumption and errors.
@@ -120,7 +156,7 @@ impl JobExecution {
                 Err(e) => {
                     if let Some(TrapCode::OutOfFuel) = e.as_trap_code() {
                         // TODO: Deduct cycles from gas, then resume execution if more gas is available.
-                        // store.set_fuel(FUEL_PER_BATCH).map_err(|e| format!("Failed to refuel: {}", e))?;
+                        // self.store.set_fuel(FUEL_PER_BATCH).map_err(|e| format!("Failed to refuel: {}", e))?;
                         return Err("WASM execution ran out of fuel".to_string());
                     }
                     // Other execution error (trap, validation, etc.)
@@ -131,41 +167,3 @@ impl JobExecution {
     }
 }
 
-fn register_host_functions(linker: &mut Linker<ExecutionContext>, store: &mut Store<ExecutionContext>) -> Result<(), String> {
-    linker
-        .define("env", "abort", Func::wrap(&mut *store, abort_host))
-        .map_err(|e| format!("Failed to define abort: {}", e))?;
-    linker
-        .define("env", "example_host_function", Func::wrap(&mut *store, example_host_function))
-        .map_err(|e| format!("Failed to define example_host_function: {}", e))?;
-    linker
-        .define("env", "example_async_host_function", Func::wrap(&mut *store, example_async_host_function))
-        .map_err(|e| format!("Failed to define example_async_host_function: {}", e))?;
-    Ok(())
-}
-
-fn abort_host(message_ptr: i32, file_ptr: i32, line: i32, column: i32) {
-    // TODO: Dereference pointers.
-    ic_cdk::println!("AssemblyScript abort at {}:{} (msg={}, file={})", 
-                     line, column, message_ptr, file_ptr);
-    // TODO: Don't trap? Or update job status to "failed"?
-    ic_cdk::trap("AssemblyScript abort");
-}
-
-fn example_host_function(caller: Caller<ExecutionContext>) -> i64 {
-    let context = caller.data();
-    ic_cdk::println!("example_host_function invoked for job: {:?}", context.request.on_chain_id);
-    ic_cdk::api::time() as i64
-}
-
-fn example_async_host_function(mut caller: Caller<ExecutionContext>, callback: i32) {
-    ic_cdk::println!("example_async_host_function invoked with callback index: {}", callback);
-    caller.data_mut().pending_callbacks.push_back(callback);
-    ic_cdk::println!("Pending callbacks: {:?}", caller.data().pending_callbacks.len());
-}
-
-async fn example_async() -> Result<i32, String> {
-    ic_cdk::println!("example_async invoked");
-    crate::chain::sync_chain("eip155:31337".to_string()).await?;
-    Ok(42)
-}
