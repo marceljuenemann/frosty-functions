@@ -1,8 +1,6 @@
-/**
- * Registry for callback functions. Functions in a registry can be retrieved again
- * with a numeric ID and won't be garbage collected while in the registry.
- */
-class CallbackRegistry<T> {
+import { Promise } from "../promise";
+
+class Registry<T> {
   private map: Map<i32, T> = new Map<i32, T>();
   private nextId: i32 = 0;
 
@@ -13,24 +11,29 @@ class CallbackRegistry<T> {
   }
   
   public retrieve(id: i32): T {
-    if (!this.map.has(id)) {
-      throw new Error(`FROSTY: No callback found with id: ${id}`);
-    }
     return this.map.get(id);
   }
 }
 
-/**
- * Low-level promise for host <=> module communication.
- */
-export interface HostPromise {
-  resolve(bufferLength: i32): void;
-  reject(bufferLength: i32): void;
-}
+const PROMISE_REGISTRY = new Registry<SharedPromise>();
 
 /**
- * Global promise registry for async host function callbacks.
- * 
- * By keeping references to callbacks here, we ensure they won't be garbage collected.
+ * A Promise that can be resolved by the host.
  */
-export const PROMISE_REGISTRY = new CallbackRegistry<HostPromise>();
+export class SharedPromise extends Promise<i32> {
+  public readonly reference: i32;
+
+  constructor() {
+    super();
+    this.reference = PROMISE_REGISTRY.register(this);
+  }
+}
+
+export function resolveSharedPromise(reference: i32, value: i32): void {
+  PROMISE_REGISTRY.retrieve(reference).resolve(value);
+}
+
+export function rejectSharedPromise(reference: i32, value: i32): void {
+  // TODO: Load error message from shared buffer.
+  PROMISE_REGISTRY.retrieve(reference).reject(new Error(`Promise rejected with value: ${value}`));
+}

@@ -46,9 +46,16 @@ export function main(): void {
     });
 */
 
-  example_async(() => {
-    console.log(`Async callback invoked! Host function returned`);
-  });
+  example_async()
+    .map<string>((value) => "Mapped value: " + value.toString())
+    .then(
+      value => {
+        console.log(`Final output: ${value}`)
+      },
+      err => {
+        console.log(`example_async failed with error: ${err.message}`);
+      }
+    );
 
   console.log("main() finished");
 }

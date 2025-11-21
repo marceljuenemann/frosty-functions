@@ -1,5 +1,6 @@
 import { __calldata, __example_async_host_function } from "./internal";
-import { HostPromise, PROMISE_REGISTRY } from "./internal/async";
+import { SharedPromise } from "./internal/async";
+import { Promise } from "./promise";
 
 /**
  * Size of the calldata passed into the function in bytes.
@@ -16,25 +17,12 @@ export function calldata(): Uint8Array {
   return Uint8Array.wrap(buffer);
 }
 
-class ExampleAsyncCallback implements HostPromise {
-  constructor(private callback: () => void) {}
-
-  resolve(bufferLength: i32): void {
-    console.log(`example_async: Promise resolved with bufferLength: ${bufferLength}`);
-    this.callback();
-  }
-
-  reject(bufferLength: i32): void {
-    console.log(`example_async: Promise rejected with bufferLength: ${bufferLength}`);
-  }
-
-  // TODO: Could be part of a base class?
-  register(): i32 {
-    return PROMISE_REGISTRY.register(this);
-  }
-}
-
-export function example_async(callback: () => void): void {
+export function example_async(): Promise<string> {
   console.log("example_async called");
-  __example_async_host_function(new ExampleAsyncCallback(callback).register());
+  let promise = new SharedPromise();
+  __example_async_host_function(promise.reference);
+  return promise.map<string>((value: i32) => {
+    console.log(`example_async: Host function returned with value: ${value}`);
+    return value.toString();
+  });
 }
