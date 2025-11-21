@@ -12,7 +12,3 @@ export function main(): void {
 
   console.log("main() finished");
 }
-
-function named_callback(): void {
-  console.log("named_callback invoked");
-}
