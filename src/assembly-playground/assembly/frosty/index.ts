@@ -20,7 +20,7 @@ export function calldata(): Uint8Array {
 export function example_async(): Promise<string> {
   console.log("example_async called");
   let promise = new SharedPromise();
-  __example_async_host_function(promise.reference);
+  __example_async_host_function(promise.ref);
   return promise.map<string>((value: i32) => {
     console.log(`example_async: Host function returned with value: ${value}`);
     return value.toString();

@@ -11,7 +11,9 @@ class Registry<T> {
   }
   
   public retrieve(id: i32): T {
-    return this.map.get(id);
+    let value = this.map.get(id);
+    this.map.delete(id);
+    return value;
   }
 }
 
@@ -21,11 +23,11 @@ const PROMISE_REGISTRY = new Registry<SharedPromise>();
  * A Promise that can be resolved by the host.
  */
 export class SharedPromise extends Promise<i32> {
-  public readonly reference: i32;
+  public readonly ref: i32;
 
   constructor() {
     super();
-    this.reference = PROMISE_REGISTRY.register(this);
+    this.ref = PROMISE_REGISTRY.register(this);
   }
 }
 
