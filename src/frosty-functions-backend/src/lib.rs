@@ -46,7 +46,7 @@ async fn get_queue(chain_id: String) -> Result<Vec<u64>, String> {
 fn add_chain(chain_id: String, bridge_contract: String) -> Result<bool, String> {
     // TODO: Check that caller is a controller.
     match chain_id.as_str() {
-        "eip155:421614" => {  // TODO: Support more chains
+        "eip155:42161" => {  // TODO: Support more chains
             mutate_state(|state| {
                 if state.chains.contains_key(&chain_id) {
                     Err("Chain already exists".to_string())
@@ -61,17 +61,6 @@ fn add_chain(chain_id: String, bridge_contract: String) -> Result<bool, String> 
         }
         _ => Err(format!("Unsupported chain id: {}", chain_id)),
     }
-}
-
-// Get logs from a smart contract using the local EVM RPC canister
-// Parameters:
-// - contract_address: the contract address (e.g., "0x...")
-#[ic_cdk::update]
-async fn evm_get_logs(
-    contract_address: String,
-) -> Result<String, String> {
-//    tmp_get_logs(contract_address).await
-    Err("Not implemented".to_string())
 }
 
 // Enable Candid export

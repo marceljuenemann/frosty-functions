@@ -14,6 +14,7 @@ use alloy_primitives::B256;
 use crate::job::JobRequest;
 use crate::chain::Address;
 
+pub const CHAIN_ID_ARBITRUM_ONE: u64 = 42161;
 pub const CHAIN_ID_ARBITRUM_SEPOLIA: u64 = 421614;
 pub const CHAIN_ID_LOCALHOST: u64 = 31337;
 
@@ -133,6 +134,16 @@ fn create_client(chain_id: u64) -> EvmRpcClient<IcRuntime, CandidResponseConvert
                         },
                     ],
                 })
+                .with_consensus_strategy(ConsensusStrategy::Threshold {
+                    total: Some(3),
+                    min: 2,
+                })
+                .build()
+        }
+        CHAIN_ID_ARBITRUM_ONE => {
+            // Use public RPC providers for Arbitrum One
+            EvmRpcClient::builder_for_ic()
+                .with_rpc_sources(RpcServices::ArbitrumOne(None))
                 .with_consensus_strategy(ConsensusStrategy::Threshold {
                     total: Some(3),
                     min: 2,

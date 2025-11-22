@@ -59,4 +59,5 @@ Script compiler. Run `npm run asbuild` in `src/assembly-playground`.
 
 Latest version of the contract
 
-* Arbitrum Sepolia: https://sepolia.arbiscan.io/address/0xe712a7e50aba019a6d225584583b09c4265b037b
+* Arbitrum Sepolia (testnet): https://sepolia.arbiscan.io/address/0xe712a7e50aba019a6d225584583b09c4265b037b
+* Arbitrum One: https://arbiscan.io/address/0xe712a7e50aba019a6d225584583b09c4265b037b
