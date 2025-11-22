@@ -73,7 +73,7 @@ pub async fn sync_chain(chain_id: String) -> Result<bool, String> {
 async fn fetch_jobs(chain_id: String) -> Result<Vec<JobRequest>, String> {
     match chain_id.as_str() {
         // TODO: Support all EVM chains here.
-        "eip155:31337" => {
+        "eip155:421614" => {
             let (bridge_address, synced_block_number) = read_chain_state(&chain_id, |state| {
                 match &state.bridge_address {
                     Address::EvmAddress(addr) => {
@@ -81,9 +81,10 @@ async fn fetch_jobs(chain_id: String) -> Result<Vec<JobRequest>, String> {
                     }
                 }
             })?;
-            let evm_chain_id = 31337;  // TODO: Parse from chain_id
-            let since_block = synced_block_number.map(|block| block + 1).unwrap_or(0);
-
+            let evm_chain_id = 421614;  // TODO: Parse from chain_id
+          //  let since_block = synced_block_number.map(|block| block + 1).unwrap_or(0);
+            let since_block = 217857590 - 1; // TODO: Remove hardcoding.
+            	
             let jobs = crate::evm::fetch_jobs(evm_chain_id, bridge_address, since_block).await?;
             Ok(jobs)
         }

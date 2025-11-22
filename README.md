@@ -54,3 +54,9 @@ See instructions [here](https://internetcomputer.org/docs/building-apps/develope
 
 Until the Frontend is up and running, the WASM needs to be compiled directly with the Assembly
 Script compiler. Run `npm run asbuild` in `src/assembly-playground`.
+
+## Contract deployments
+
+Latest version of the contract
+
+* Arbitrum Sepolia: https://sepolia.arbiscan.io/address/0xe712a7e50aba019a6d225584583b09c4265b037b

@@ -46,7 +46,7 @@ async fn get_queue(chain_id: String) -> Result<Vec<u64>, String> {
 fn add_chain(chain_id: String, bridge_contract: String) -> Result<bool, String> {
     // TODO: Check that caller is a controller.
     match chain_id.as_str() {
-        "eip155:31337" => {
+        "eip155:421614" => {  // TODO: Support more chains
             mutate_state(|state| {
                 if state.chains.contains_key(&chain_id) {
                     Err("Chain already exists".to_string())
