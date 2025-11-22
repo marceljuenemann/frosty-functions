@@ -11,12 +11,10 @@ use evm_rpc_types::{BlockTag, Hex20, RpcServices};
 use alloy_sol_types::{sol, SolEvent};
 use alloy_primitives::B256;
 
+use crate::chain::Chain;
+use crate::chain::EvmChain;
 use crate::job::JobRequest;
 use crate::chain::Address;
-
-pub const CHAIN_ID_ARBITRUM_ONE: u64 = 42161;
-pub const CHAIN_ID_ARBITRUM_SEPOLIA: u64 = 421614;
-pub const CHAIN_ID_LOCALHOST: u64 = 31337;
 
 // Define the event with Alloy's sol! macro (must match Bridge.sol exactly)
 sol! {
@@ -27,8 +25,8 @@ sol! {
 /// Fetches requested jobs from the EVM chain.
 ///
 /// NOTE: This fetches jobs from unfinalized blocks that might be re-orged.
-pub async fn fetch_jobs(chain_id: u64, contract_address: String, since_block: u64) -> Result<Vec<JobRequest>, String> {
-    let client = create_client(chain_id);
+pub async fn fetch_jobs(evm_chain: &EvmChain, contract_address: String, since_block: u64) -> Result<Vec<JobRequest>, String> {
+    let client = create_client(evm_chain);
     let address_hex: Hex20 = contract_address.parse().map_err(|e| format!("Invalid address: {}", e))?;
     let mut filter = evm_rpc_types::GetLogsArgs::from(vec![address_hex]);
     filter.from_block = Some(BlockTag::Number(Nat256::from(since_block)));
@@ -39,7 +37,7 @@ pub async fn fetch_jobs(chain_id: u64, contract_address: String, since_block: u6
     // so using a 2 out of 3 consensus strategy seems important.
     match client.get_logs(filter).send().await {
         evm_rpc_types::MultiRpcResult::Consistent(Ok(events)) => {
-          return jobs_from_events(chain_id, events);
+          return jobs_from_events(evm_chain, events);
         }
         evm_rpc_types::MultiRpcResult::Consistent(Err(err)) => {
             return Err(format!("EVM RPC error: {:?}", err));
@@ -50,7 +48,7 @@ pub async fn fetch_jobs(chain_id: u64, contract_address: String, since_block: u6
     }
 }
 
-fn jobs_from_events(chain_id: u64, events: Vec<LogEntry>) -> Result<Vec<JobRequest>, String> {
+fn jobs_from_events(chain: &EvmChain, events: Vec<LogEntry>) -> Result<Vec<JobRequest>, String> {
     let mut jobs = Vec::new();
     for event in events.iter().rev() {
         match decode_function_invocation(event) {
@@ -68,7 +66,7 @@ fn jobs_from_events(chain_id: u64, events: Vec<LogEntry>) -> Result<Vec<JobReque
                 let function_hash = <[u8; 32]>::from(func_invoked.functionId);
 
                 let job = JobRequest {
-                    chain_id: format!("eip155:{}", chain_id),
+                    chain: Chain::Evm(chain.clone()),
                     block_hash: event.block_hash.clone(),
                     block_number: event.block_number.clone(),
                     transaction_hash: event.transaction_hash.clone(),
@@ -97,68 +95,55 @@ fn decode_function_invocation(event: &LogEntry) -> Result<FunctionInvoked, Error
     FunctionInvoked::decode_raw_log(topics, event.data.as_ref(), true)
 }
 
-/// Creates an EVM RPC client for the specified chain ID.
+/// Creates an EVM RPC client for the specified chain.
 /// 
 /// All calls are sent to three different providers and a 2 out of 3 consensus is required.
-fn create_client(chain_id: u64) -> EvmRpcClient<IcRuntime, CandidResponseConverter, NoRetry> {
-    match chain_id {
-        CHAIN_ID_LOCALHOST => {
-            // Use local EVM node for connecting to local chain.
-            EvmRpcClient::builder_for_ic()
-                .with_rpc_sources(RpcServices::Custom {
-                    chain_id: CHAIN_ID_LOCALHOST,
-                    services: vec![evm_rpc_types::RpcApi {
-                        url: "http://127.0.0.1:8545".to_string(),
-                        headers: None,
-                    }],
-                })
-                .build()
-        }
-        CHAIN_ID_ARBITRUM_SEPOLIA => {
-            // Use local EVM node for connecting to local chain.
-            EvmRpcClient::builder_for_ic()
-                .with_rpc_sources(RpcServices::Custom {
-                    chain_id: CHAIN_ID_ARBITRUM_SEPOLIA,
-                    services: vec![
-                        evm_rpc_types::RpcApi {
-                            url: "https://arbitrum-sepolia-rpc.publicnode.com".to_string(),
-                            headers: None,
-                        },
-                        evm_rpc_types::RpcApi {
-                            url: "https://arbitrum-sepolia.drpc.org".to_string(),
-                            headers: None,
-                        },
-                        evm_rpc_types::RpcApi {
-                            url: "https://arbitrum-sepolia.gateway.tenderly.co".to_string(),
-                            headers: None,
-                        },
-                    ],
-                })
-                .with_consensus_strategy(ConsensusStrategy::Threshold {
-                    total: Some(3),
-                    min: 2,
-                })
-                .build()
-        }
-        CHAIN_ID_ARBITRUM_ONE => {
-            // Use public RPC providers for Arbitrum One
-            EvmRpcClient::builder_for_ic()
-                .with_rpc_sources(RpcServices::ArbitrumOne(None))
-                .with_consensus_strategy(ConsensusStrategy::Threshold {
-                    total: Some(3),
-                    min: 2,
-                })
-                .build()
-        }
-        _ => {
-            // TODO: Looks like we can only support specific chains.
-            EvmRpcClient::builder_for_ic()
-                .with_consensus_strategy(ConsensusStrategy::Threshold {
-                    total: Some(3),
-                    min: 2,
-                })
+fn create_client(evm_chain: &EvmChain) -> EvmRpcClient<IcRuntime, CandidResponseConverter, NoRetry> {
+    let mut builder = EvmRpcClient::builder_for_ic()
+      .with_rpc_sources(get_rpc_sources(evm_chain));
+    if *evm_chain != EvmChain::Localhost {
+        builder = builder.with_consensus_strategy(ConsensusStrategy::Threshold {
+            total: Some(3),
+            min: 2,
+        });
+    }
+    builder.build()
+}
 
-                .build()
-        }
+fn get_rpc_sources(evm_chain: &EvmChain) -> RpcServices {
+    match evm_chain {
+        EvmChain::Localhost => RpcServices::Custom {
+            chain_id: evm_chain_id(EvmChain::Localhost),
+            services: vec![evm_rpc_types::RpcApi {
+                url: "http://127.0.0.1:8545".to_string(),
+                headers: None,
+            }],
+        },
+        EvmChain::ArbitrumSepolia => RpcServices::Custom {
+            chain_id: evm_chain_id(EvmChain::ArbitrumSepolia),
+            services: vec![
+                evm_rpc_types::RpcApi {
+                    url: "https://arbitrum-sepolia-rpc.publicnode.com".to_string(),
+                    headers: None,
+                },
+                evm_rpc_types::RpcApi {
+                    url: "https://arbitrum-sepolia.drpc.org".to_string(),
+                    headers: None,
+                },
+                evm_rpc_types::RpcApi {
+                    url: "https://arbitrum-sepolia.gateway.tenderly.co".to_string(),
+                    headers: None,
+                },
+            ],
+        },
+        EvmChain::ArbitrumOne => RpcServices::ArbitrumOne(None)
+    }
+}
+
+pub fn evm_chain_id(chain: EvmChain) -> u64 {
+    match chain {
+        EvmChain::ArbitrumOne => 42161,
+        EvmChain::ArbitrumSepolia => 421614,
+        EvmChain::Localhost => 31337,
     }
 }

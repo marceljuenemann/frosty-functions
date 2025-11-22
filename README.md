@@ -41,11 +41,10 @@ Inspired by [icp-evm-coprocessor-starter](https://github.com/letmejustputthisher
 * You can view logged events with `cast logs --rpc-url http://localhost:854
 5 --address 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9 --from-block 0 --to-block latest` (replace address with contract address)
 * Using the candid backend container, you can now sync and execute the jobs
-  * `add_chain("eip155:31337", "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0")` (replace with bridge address)
-  * `sync_chain("eip155:31337")` (31337 will automatically use localhost as RPC Service)
-  * `get_queue("eip155:31337")`
-  * `execute_job("eip155:31337", job_id)`
-
+  * `sync_chain`
+  * `get_queue`
+  * `execute_job`
+  
 ### Regenerate candid interface
 
 See instructions [here](https://internetcomputer.org/docs/building-apps/developer-tools/cdks/rust/generating-candid#option-1-automatic-generation-using-generate-did-crate). There seems to be some issue with finding the right WASM file though, so I currently use `generate-candid.sh` as a workaround.

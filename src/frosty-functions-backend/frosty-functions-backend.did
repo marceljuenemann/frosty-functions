@@ -1,31 +1,28 @@
 type Address = variant { EvmAddress : text };
+type Chain = variant { Evm : EvmChain };
+type EvmChain = variant { ArbitrumSepolia; ArbitrumOne; Localhost };
 type Job = record { request : JobRequest };
 type JobRequest = record {
   transaction_hash : opt text;
   block_hash : opt text;
   data : blob;
+  chain : Chain;
   on_chain_id : opt nat;
   block_number : opt nat;
-  chain_id : text;
   function_hash : blob;
   gas_payment : nat;
   caller : Address;
 };
-type Result = variant { Ok : bool; Err : text };
-type Result_1 = variant { Ok : text; Err : text };
-type Result_2 = variant { Ok; Err : text };
-type Result_3 = variant { Ok : Job; Err : text };
-type Result_4 = variant { Ok : vec nat64; Err : text };
-service : {
-  // Adds a supported chain by its CAIP-2 chain id. Only the owner may call this.
-  // Currently supports only specific EVM chains (namespace "eip155").
-  add_chain : (text, text) -> (Result);
-  evm_get_logs : (text) -> (Result_1);
-  execute_job : (text, nat64) -> (Result_2);
-  get_job_info : (text, nat64) -> (Result_3) query;
+type Result = variant { Ok; Err : text };
+type Result_1 = variant { Ok : Job; Err : text };
+type Result_2 = variant { Ok : vec nat64; Err : text };
+type Result_3 = variant { Ok : bool; Err : text };
+service : () -> {
+  execute_job : (Chain, nat64) -> (Result);
+  get_job_info : (Chain, nat64) -> (Result_1) query;
   // Returns IDs of jobs currently in the queue for processing.
-  get_queue : (text) -> (Result_4) query;
+  get_queue : (Chain) -> (Result_2) query;
   // Fetches new jobs from the specified chain.
   // Returns Ok(true) if new jobs were synced.
-  sync_chain : (text) -> (Result);
+  sync_chain : (Chain) -> (Result_3);
 }

@@ -3,13 +3,22 @@ use std::{collections::HashMap};
 
 use evm_rpc_types::Hex20;
 
-use crate::{job::{Job, JobRequest}, state::{mutate_chain_state, mutate_state, read_chain_state, read_state}};
+use crate::{job::{Job, JobRequest}, state::{mutate_chain_state, read_chain_state}};
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, candid::CandidType)]
+pub enum Chain {
+    Evm(EvmChain)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, candid::CandidType    )]
+pub enum EvmChain {
+    ArbitrumOne,
+    ArbitrumSepolia,
+    Localhost
+}
 
 /// Stores all state related to a specific blockchain.
 pub struct ChainState {
-    // The chain ID using CAIP-2 format.
-    pub chain_id: String,
-
     // The bridge contract address on this chain (e.g., EVM 0x... address).
     pub bridge_address: Address,
 
@@ -29,9 +38,8 @@ pub struct ChainState {
 }
 
 impl ChainState {
-    pub fn new(chain_id: String, bridge_address: Address) -> Self {
+    pub fn new(bridge_address: Address) -> Self {
         Self {
-            chain_id,
             bridge_address,
             synced_block_number: None,
             jobs: HashMap::new(),
@@ -49,17 +57,17 @@ pub enum Address {
 
 /// Syncs the given chain up to the latest block.
 /// Returns true if new jobs were created.
-pub async fn sync_chain(chain_id: String) -> Result<bool, String> {
+pub async fn sync_chain(chain: &Chain) -> Result<bool, String> {
     // TODO: Return and update latest block number.
-    let new_jobs = fetch_jobs(chain_id.clone()).await?;
+    let new_jobs = fetch_jobs(&chain).await?;
     let has_jobs = !new_jobs.is_empty();
-    mutate_chain_state(&chain_id, |state| {
+    mutate_chain_state(&chain, |state| {
         for job_request in new_jobs {
             // TODO: on_chain_id is not the best key as it could be duplicate due to re-orgs.
             // It might also be absent for non-EVM chains.
             let job_id = u64::try_from(job_request.on_chain_id.clone().unwrap()).unwrap();
             if state.jobs.contains_key(&job_id) {
-                ic_cdk::println!("ERROR: Job already exists: {:?} {:?}", chain_id, &job_id);
+                ic_cdk::println!("ERROR: Job already exists: {:?} {:?}", chain, &job_id);
             } else {
                 state.jobs.insert(job_id, Job { request: job_request });
                 state.job_queue.push(job_id);
@@ -70,24 +78,26 @@ pub async fn sync_chain(chain_id: String) -> Result<bool, String> {
 }
 
 /// Fetches new jobs from the given chain.
-async fn fetch_jobs(chain_id: String) -> Result<Vec<JobRequest>, String> {
-    match chain_id.as_str() {
-        // TODO: Support all EVM chains here.
-        "eip155:42161" => {
-            let (bridge_address, synced_block_number) = read_chain_state(&chain_id, |state| {
+async fn fetch_jobs(chain: &Chain) -> Result<Vec<JobRequest>, String> {
+    match chain {
+        Chain::Evm(evm_chain) => {
+            let (bridge_address, synced_block_number) = read_chain_state(&chain, |state| {
                 match &state.bridge_address {
                     Address::EvmAddress(addr) => {
                         Ok((addr.to_string(), state.synced_block_number))
                     }
                 }
             })?;
-            let evm_chain_id = 42161;  // TODO: Parse from chain_id
-          //  let since_block = synced_block_number.map(|block| block + 1).unwrap_or(0);
-            let since_block = 217857590 - 1; // TODO: Remove hardcoding.
-            let since_block = 403018054 - 10; // Temporary for testing
-            let jobs = crate::evm::fetch_jobs(evm_chain_id, bridge_address, since_block).await?;
+            // TODO: Write proper sync logic.
+            // let since_block = synced_block_number.map(|block| block + 1).unwrap_or(0);
+            let since_block = match evm_chain {
+                EvmChain::ArbitrumOne => 403018054 - 10,
+                EvmChain::ArbitrumSepolia => 217857590 - 1,
+                EvmChain::Localhost => 0,
+            };
+            let jobs = crate::evm::fetch_jobs(evm_chain, bridge_address, since_block).await?;
             Ok(jobs)
         }
-        _ => Err(format!("Unsupported chain id: {}", chain_id)),
+        _ => Err(format!("Unsupported chain: {:?}", chain)),
     }
 }

@@ -5,6 +5,7 @@ use wasmi::{Engine, Linker, Module, Store, TypedFunc, core::TrapCode};
 
 use crate::{job::JobRequest, state::read_chain_state};
 use crate::api::{register_constants, register_host_functions};
+use crate::chain::Chain;
 
 const FUEL_PER_BATCH: u64 = 1_000_000;
 
@@ -25,8 +26,8 @@ struct JobExecution {
     // TODO: Keep a queue of callbacks to invoke and futures to poll.
 }
 
-pub async fn execute_job(chain_id: String, job_id: u64) -> Result<(), String> {
-    let request = read_chain_state(&chain_id, |state| {
+pub async fn execute_job(chain: Chain, job_id: u64) -> Result<(), String> {
+    let request = read_chain_state(&chain, |state| {
         state.jobs.get(&job_id)
             .ok_or_else(|| format!("Job not found: {}", job_id))
             .map(|job| job.request.clone())
@@ -37,14 +38,6 @@ pub async fn execute_job(chain_id: String, job_id: u64) -> Result<(), String> {
 
     let mut execution = JobExecution::init(request.clone(), binary)?;
     execution.execute().await?;
-
-    /*
-    ic_cdk::println!("Waiting for task_async");
-    log_current_state();
-    task_async.await?;
-    ic_cdk::println!("Done waiting for task_async");
-    log_current_state();
-    */
 
     Ok(())
 }

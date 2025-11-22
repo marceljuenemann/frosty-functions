@@ -2,15 +2,15 @@ use candid::CandidType;
 use evm_rpc_types::{Hex32, Nat256};
 use serde::{Deserialize, Serialize};
 
-use crate::chain::Address;
+use crate::chain::{Address, Chain};
 
 /// Request for executing a function. Currently these are created from EVM logs,
 /// but in the future they could also come from other sources such as other chains,
 /// recursive invocations etc.
 #[derive(Debug, Clone, CandidType, Serialize, Deserialize)]
 pub struct JobRequest {
-    /// Chain ID in CAIP-2 format (e.g., "eip155:1" for Ethereum mainnet)
-    pub chain_id: String,
+    /// Chain that this job request originates from.
+    pub chain: Chain,
     /// Block hash this log was found in
     pub block_hash: Option<Hex32>,
     /// Block number this log was found in
@@ -37,3 +37,29 @@ pub struct Job {
     pub request: JobRequest,
     // TODO: Add status, timestamps, logs, gas used etc.
 }
+
+
+/*
+type FailureReason = variant {
+  FunctionNotFound;      // No function with the given ID
+  InvalidModule;         // Wasm module is invalid or malformed
+  OutOfGas;              // Ran out of gas during execution
+  UncaughtException;     // Uncaught exception in user code
+  SystemError;           // Something that should not happen.
+};
+
+type JobStatus = variant {
+  // Job was added to the queue, but not yet processed.
+  Pending;
+
+  // Job is currently being executed.
+  Processing;
+  
+  // Job completed without errors.
+  Completed;
+
+  // Job execution failed.
+  Failed: record { error: FailureReason };
+};
+
+*/
