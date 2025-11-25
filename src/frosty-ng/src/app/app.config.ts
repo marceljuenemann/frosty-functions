@@ -5,7 +5,7 @@ import { NGX_MONACO_EDITOR_CONFIG, NgxMonacoEditorConfig } from 'ngx-monaco-edit
 import { routes } from './app.routes';
 
 const monacoConfig: NgxMonacoEditorConfig = {
-  // baseUrl: '/assets/monaco/min/vs',
+  baseUrl: window.location.origin + `/assets/monaco/min/vs`,
   defaultOptions: { scrollBeyondLastLine: false }
 };
 
