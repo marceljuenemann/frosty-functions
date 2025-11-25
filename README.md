@@ -60,3 +60,7 @@ Latest version of the contract
 
 * Arbitrum Sepolia (testnet): https://sepolia.arbiscan.io/address/0xe712a7e50aba019a6d225584583b09c4265b037b
 * Arbitrum One: https://arbiscan.io/address/0xe712a7e50aba019a6d225584583b09c4265b037b
+
+## Canister deployments
+
+* Backend: https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=n6va3-cyaaa-aaaao-qk6pq-cai

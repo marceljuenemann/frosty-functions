@@ -13,7 +13,7 @@
   },
   "type": "module",
   "workspaces": [
-    "src/frosty-functions-frontend"
+    "src/frosty-ng"
   ],
   "devDependencies": {
     "assemblyscript": "^0.28.8"

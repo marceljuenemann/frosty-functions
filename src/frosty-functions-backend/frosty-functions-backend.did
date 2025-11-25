@@ -22,6 +22,7 @@ service : () -> {
   get_job_info : (Chain, nat64) -> (Result_1) query;
   // Returns IDs of jobs currently in the queue for processing.
   get_queue : (Chain) -> (Result_2) query;
+  simulate_execution : (JobRequest, blob) -> (Result) query;
   // Fetches new jobs from the specified chain.
   // Returns Ok(true) if new jobs were synced.
   sync_chain : (Chain) -> (Result_3);

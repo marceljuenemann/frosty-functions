@@ -5,15 +5,15 @@
       "package": "frosty-functions-backend",
       "type": "rust"
     },
-    "frosty-functions-frontend": {
+    "frosty-ng": {
       "dependencies": [
         "frosty-functions-backend"
       ],
       "source": [
-        "src/frosty-functions-frontend/dist"
+        "src/frosty-ng/dist/frosty-ng/browser"
       ],
       "type": "assets",
-      "workspace": "frosty-functions-frontend"
+      "workspace": "frosty-ng"
     },
     "evm_rpc": {
       "type": "pull",
