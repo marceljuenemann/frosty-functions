@@ -30,6 +30,8 @@
     "@angular/router": "^20.3.0",
     "@ng-bootstrap/ng-bootstrap": "^19.0.1",
     "bootstrap": "^5.3.8",
+    "monaco-editor": "^0.52.2",
+    "ngx-monaco-editor-v2": "^20.3.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },
