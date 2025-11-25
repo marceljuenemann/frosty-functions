@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { Uri } from 'monaco-editor';
+import * as monaco from 'monaco-editor';
 import { MonacoEditorModule, NgxEditorModel } from 'ngx-monaco-editor-v2';
 
 @Component({
@@ -19,10 +19,10 @@ export class MonacoEditor {
       top: 18
     }
   };
-  code: string= 'function x() {\n  console.log("Hello world!");\n}';
+  code: string= 'import {fib2} from "frosty/fib"\n\nfunction x() {\n  console.log("Hello world!");\n}';
   model: NgxEditorModel = {
     value: this.code,
     language: 'typescript',
-    uri: Uri.parse('file://function.ts')
+    uri: monaco.Uri.file('function.ts')
   };
 }

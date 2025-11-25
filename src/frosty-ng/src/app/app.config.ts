@@ -4,9 +4,25 @@ import { NGX_MONACO_EDITOR_CONFIG, NgxMonacoEditorConfig } from 'ngx-monaco-edit
 
 import { routes } from './app.routes';
 
+// TODO: Move into monaco-editor component.
+export function onMonacoLoad() {
+  const monaco = ((window as any).monaco) as typeof import('monaco-editor');
+  console.log('Monaco loaded', monaco);
+
+  // TODO: Load from server.
+  const defModel = monaco.editor.createModel(
+    `declare module "frosty/fib" {
+      /** Calculate the n-th Fibonacci number. */
+      export function fib2(n: i32): i32;
+    }`,
+    'typescript',
+    monaco.Uri.parse('file:///frosty.d.ts'),
+  );
+}
+
 const monacoConfig: NgxMonacoEditorConfig = {
   baseUrl: window.location.origin + `/assets/monaco/min/vs`,
-  defaultOptions: { scrollBeyondLastLine: false }
+  onMonacoLoad
 };
 
 export const appConfig: ApplicationConfig = {
