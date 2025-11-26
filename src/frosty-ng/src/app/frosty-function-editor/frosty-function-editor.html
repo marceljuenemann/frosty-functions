@@ -22,7 +22,7 @@
         }
         @if (sim.status === 'error') {
           <div class="alert alert-danger" role="alert" style="max-height: 300px; overflow: auto">
-            <div><b>Simulation Error</b></div>
+            <div><b>Simulation failed unexpectedly</b></div>
             <pre>{{ sim.error.message }}</pre>
           </div>
         }

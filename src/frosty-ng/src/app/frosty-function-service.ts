@@ -91,14 +91,17 @@ export class FrostyFunctionService {
       chain: { Evm: { Localhost: null } },
       on_chain_id: [],
       block_number: [],
-      function_hash: new Uint8Array(),
+      function_hash: new Uint8Array(32),
       gas_payment: BigInt(0),
       caller: { EvmAddress: '0x0000000000000000000000000000000000000000' },
     };
     return this.backend.simulate_execution(request, wasm).then(
       (result) => {
-        console.log('Simulation result:', result);
-        return { logs: [] };
+        if ('Ok' in result) {
+          return { logs: [] };
+        } else {
+          throw new Error(`${result.Err}`);
+        }
       }
     );
   }
