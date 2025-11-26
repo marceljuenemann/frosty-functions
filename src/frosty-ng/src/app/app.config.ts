@@ -2,20 +2,16 @@ import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZonelessC
 import { provideRouter } from '@angular/router';
 import { NGX_MONACO_EDITOR_CONFIG, NgxMonacoEditorConfig } from 'ngx-monaco-editor-v2';
 
+import { FROSTY_SOURCES } from '../../../assembly/sources';
+
 import { routes } from './app.routes';
 
 // TODO: Move into monaco-editor component.
-export function onMonacoLoad() {
+export async function onMonacoLoad() {
   const monaco = ((window as any).monaco) as typeof import('monaco-editor');
-  // TODO: Load from server.
-  const defModel = monaco.editor.createModel(
-    `declare module "frosty/fib" {
-      /** Calculate the n-th Fibonacci number. */
-      export function fib2(n: i32): i32;
-    }`,
-    'typescript',
-    monaco.Uri.parse('file:///frosty.d.ts'),
-  );
+  for (const [module, source] of Object.entries(FROSTY_SOURCES)) {
+    monaco.editor.createModel(source, 'typescript', monaco.Uri.file(module + '.ts'));
+  }
 }
 
 const monacoConfig: NgxMonacoEditorConfig = {

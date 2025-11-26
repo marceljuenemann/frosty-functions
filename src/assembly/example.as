@@ -1,5 +1,5 @@
-import { CALLDATA_SIZE, calldata, example_async } from "./frosty";
-import { Callback, Promise } from "./frosty/promise";
+import { CALLDATA_SIZE, calldata, example_async } from "frosty";
+import { Callback, Promise } from "frosty/promise";
 
 class SimpleCallback implements Callback<string> {
   onFulfilled(value: string): void {
