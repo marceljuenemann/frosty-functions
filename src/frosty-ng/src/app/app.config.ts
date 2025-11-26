@@ -9,7 +9,7 @@ import { routes } from './app.routes';
 // TODO: Move into monaco-editor component.
 export async function onMonacoLoad() {
   const monaco = ((window as any).monaco) as typeof import('monaco-editor');
-  for (const [module, source] of Object.entries(FROSTY_SOURCES)) {
+  for (const [module, source] of FROSTY_SOURCES.entries()) {
     monaco.editor.createModel(source, 'typescript', monaco.Uri.file(module + '.ts'));
   }
 }

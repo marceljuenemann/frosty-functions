@@ -3,6 +3,7 @@ import { createActor, frosty_functions_backend, idlFactory } from 'declarations/
 import asc from "assemblyscript/asc";
 import { _SERVICE, ExecutionResult, JobRequest, Result_3 } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
 import { Actor, ActorMethodMappedExtended, ActorSubclass, HttpAgent } from '@icp-sdk/core/agent';
+import { FROSTY_SOURCES } from '../../../assembly/sources';
 
 export type CompilationResult = {
   success: true
@@ -49,7 +50,6 @@ export class FrostyFunctionService {
   /**
    * Compiles the provided function code into a WebAssembly binary.
    */
-  // TODO: Make async? Use Web Worker?
   async compile(code: string): Promise<CompilationResult> {
     const stdout = asc.createMemoryStream()
 
@@ -58,16 +58,15 @@ export class FrostyFunctionService {
       stdout,
       stderr: stdout,
       readFile: (name, basedir) => {
-        console.log('readFile', { name, basedir });
         if (name === 'function.ts') {
           return code
-        } else if (name === 'node_modules/frosty/fib.ts') {
-          // TODO: Include actual API. (ideally at compile-time)
-          return `export function fib2(n: i32): i32 {
-                    if (n <= 1) return n;
-                    return fib2(n - 1) + fib2(n - 2);
-                  }
-            `;
+        } else if (name.startsWith('node_modules/frosty/')) {
+          // Note: name might be 'node_modules/frosty/node_modules/frosty/index.ts'
+          const moduleName = 'frosty/' + name.replaceAll('node_modules/frosty/', '').replace('.ts', '')
+          if (FROSTY_SOURCES.has(moduleName)) {
+            return FROSTY_SOURCES.get(moduleName)!
+          }
+          console.error("Frosty module not found:", moduleName);
         }
         return null
       },

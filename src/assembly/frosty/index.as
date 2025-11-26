@@ -1,5 +1,5 @@
-import { __calldata, __example_async_host_function } from "frosty/internal";
-import { SharedPromise } from "./internal/async";
+import { __calldata, __example_async_host_function } from "./internal";
+import { SharedPromise } from "frosty/internal/async";
 import { Promise } from "frosty/promise";
 
 /**

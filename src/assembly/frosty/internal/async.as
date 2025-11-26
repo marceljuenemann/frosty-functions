@@ -1,4 +1,4 @@
-import { Promise } from "../promise";
+import { Promise } from "frosty/promise";
 
 class Registry<T> {
   private map: Map<i32, T> = new Map<i32, T>();
