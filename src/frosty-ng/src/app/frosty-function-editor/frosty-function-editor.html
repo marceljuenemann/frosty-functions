@@ -37,7 +37,8 @@
           </div>
         } @else {
           <div class="alert alert-success" role="alert">
-            <div><b>Simulation completed.</b> (on a single node of the Internet Computer)</div>
+            <div><b>Simulation completed.</b>
+            (Executed on <a href="https://dashboard.internetcomputer.org/canister/{{ sim.result.canisterId }}" target="_blank">{{ sim.result.canisterId }}</a>)</div>
             TODO: Display gas usage
 
             <!-- 3. Execution result -->

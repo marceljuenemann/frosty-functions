@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
-import { createActor, frosty_functions_backend } from 'declarations/frosty-functions-backend';
+import { createActor, frosty_functions_backend, idlFactory } from 'declarations/frosty-functions-backend';
 import asc from "assemblyscript/asc";
-import { JobRequest } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
+import { _SERVICE, JobRequest } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
+import { Actor, ActorMethodMappedExtended, ActorSubclass, HttpAgent } from '@icp-sdk/core/agent';
 
 export type CompilationResult = {
   success: true
@@ -14,22 +15,37 @@ export type CompilationResult = {
   logs: string
 }
 
-export type SimulationResult = { logs: [] }
+export type SimulationResult = {
+  canisterId: string,
+  logs: string[]
+}
+
+const CANISTER_ID = "uxrrr-q7777-77774-qaaaq-cai";  // Localhost
+// const CANISTER_ID = "n6va3-cyaaa-aaaao-qk6pq-cai";  // Production
 
 @Injectable({
   providedIn: 'root',
 })
 export class FrostyFunctionService {
+  private _actor: ActorSubclass<ActorMethodMappedExtended<_SERVICE>> | null = null;
 
-  private backend = createActor(
-    // TODO: Inject from environment variable
-    "uxrrr-q7777-77774-qaaaq-cai",
-    {
-      agentOptions: {
-        host: 'http://localhost:4943',
-      }
-    }
-  )
+  private async actor(): Promise<ActorSubclass<ActorMethodMappedExtended<_SERVICE>>> {
+    if (this._actor) return this._actor;
+    let agent = await HttpAgent.create({
+      host: 'http://localhost:4943',
+      verifyQuerySignatures: false  // TODO: Remove in production
+    });
+    // Production
+    /*
+    agent = await HttpAgent.create({
+      host: 'https://icp-api.io',
+    });
+    */
+    return this._actor = Actor.createActorWithExtendedDetails<_SERVICE>(
+      idlFactory,
+      { agent, canisterId: CANISTER_ID }
+    )
+  }
 
   /**
    * Compiles the provided function code into a WebAssembly binary.
@@ -95,14 +111,15 @@ export class FrostyFunctionService {
       gas_payment: BigInt(0),
       caller: { EvmAddress: '0x0000000000000000000000000000000000000000' },
     };
-    return this.backend.simulate_execution(request, wasm).then(
-      (result) => {
-        if ('Ok' in result) {
-          return { logs: [] };
-        } else {
-          throw new Error(`${result.Err}`);
-        }
-      }
-    );
+
+    const actor = await this.actor();
+    const response = await actor.simulate_execution(request, wasm);
+    const result = await response.result;
+    if ('Err' in result) {
+      throw new Error(`${result.Err}`);
+    }
+
+    // return { logs: []}
+    return { logs: result.Ok.logs, canisterId: CANISTER_ID };
   }
 }
