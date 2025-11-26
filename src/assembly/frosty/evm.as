@@ -11,12 +11,12 @@ export enum EvmChain {
  * EIP-155 chain ID. Returns zero for non-EVM chains.
  */
 @external("❄️", "evm_chain_id")
-export declare function evmChainId(): u64;
+export declare function chainId(): u64;
 
 /**
  * Returns a user-friendly name for the given EVM chain ID.
  */
-export function evmChainName(chainId: u64): string {
+export function chainName(chainId: u64): string {
   switch (chainId) {
     case EvmChain.EthereumMainnet: return "Ethereum Mainnet";
     case EvmChain.EthereumSepolia: return "Ethereum Sepolia Testnet";

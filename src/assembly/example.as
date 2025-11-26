@@ -1,8 +1,8 @@
 import { CALLDATA, JOB_ID } from "frosty";
-import { evmChainId, evmChainName } from "frosty/evm";
+import * as evm from "frosty/evm";
 
 export function main(): void {
-  console.log(`Invoked from chain: ${evmChainName(evmChainId())}`);
+  console.log(`Invoked from chain: ${evm.chainName(evm.chainId())}`);
 
   console.log(`Job ID is: ${JOB_ID}`);
   console.log(`Calldata is: ${CALLDATA}`);
