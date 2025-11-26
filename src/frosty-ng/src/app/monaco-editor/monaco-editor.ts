@@ -17,7 +17,7 @@ export class MonacoEditor {
     padding: {
       bottom: 18,
       top: 18
-    }
+    },
   };
   code: string= 'import {fib2} from "frosty/fib"\n\nfunction x() {\n  console.log("Hello world!");\n}';
   model: NgxEditorModel = {
