@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, effect, input, model, signal } from '@angular/core';
 import * as monaco from 'monaco-editor';
 import { MonacoEditorModule, NgxEditorModel } from 'ngx-monaco-editor-v2';
 
@@ -9,7 +9,7 @@ import { MonacoEditorModule, NgxEditorModel } from 'ngx-monaco-editor-v2';
   styleUrl: './monaco-editor.scss',
 })
 export class MonacoEditor {
-  editorOptions = {
+  editorOptions = model<monaco.editor.IStandaloneEditorConstructionOptions>({
     theme: 'vs-dark',
     language: 'typescript',
     automaticLayout: true,
@@ -18,11 +18,22 @@ export class MonacoEditor {
       bottom: 18,
       top: 18
     },
-  };
-  code: string= 'import {fib2} from "frosty/fib"\n\nfunction x() {\n  console.log("Hello world!");\n}';
+  })
+
+  code = model<string>('')
+
   model: NgxEditorModel = {
-    value: this.code,
+    value: '',
     language: 'typescript',
     uri: monaco.Uri.file('function.ts')
   };
+
+  onEditorInit(editor: monaco.editor.IStandaloneCodeEditor) {
+    // Note: Editor content is only set once initialily.
+    editor.setValue(this.code());
+
+    editor.onDidChangeModelContent(() => {
+      this.code.set(editor.getValue());
+    });
+  }
 }

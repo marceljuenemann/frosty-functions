@@ -1,3 +1,7 @@
 <div style="height: 500px" class="mb-4">
-  <ngx-monaco-editor style="height: 100%" [options]="editorOptions" [model]="model"></ngx-monaco-editor>
+  <ngx-monaco-editor style="height: 100%"
+      [options]="editorOptions()"
+      [model]="model"
+      (onInit)="onEditorInit($event)"
+  ></ngx-monaco-editor>
 </div>
