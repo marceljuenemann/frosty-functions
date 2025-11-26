@@ -3,4 +3,14 @@
     ▶ Simulate
   </button>
 </div>
+
+<div class="mb-3">
+  @if (this.compilationResult && !this.compilationResult.success) {
+    <div class="alert alert-danger" role="alert">
+      <div><b>Compilation Error: {{ this.compilationResult.error }}</b></div>
+      <pre>{{ this.compilationResult.logs }}</pre>
+    </div>
+  }
+</div>
+
 <monaco-editor></monaco-editor>

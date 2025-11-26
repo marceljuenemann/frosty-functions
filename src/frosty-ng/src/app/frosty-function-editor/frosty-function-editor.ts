@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { MonacoEditor } from '../monaco-editor/monaco-editor';
-import { FrostyFunctionService } from '../frosty-function-service';
+import { CompilationResult, FrostyFunctionService } from '../frosty-function-service';
 
 @Component({
   selector: 'frosty-function-editor',
@@ -10,14 +10,20 @@ import { FrostyFunctionService } from '../frosty-function-service';
 })
 export class FrostyFunctionEditor {
 
+  compilationResult: CompilationResult | null = null
+
   constructor(private frostyFunctionService: FrostyFunctionService) {}
 
-  async simulate() {
+  async compile() {
     const code = `
       function main() {
         console.log("Hello world!");
       }`;
-    const wasm = await this.frostyFunctionService.compile(code);
-    alert('Simulating function...');
+    const result = await this.frostyFunctionService.compile(code);
+    return this.compilationResult = result;
+  }
+
+  async simulate() {
+    const result = await this.compile();
   }
 }
