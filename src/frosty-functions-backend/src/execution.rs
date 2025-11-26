@@ -1,30 +1,14 @@
 use std::collections::VecDeque;
 
+use candid::CandidType;
 use wasmi::WasmParams;
-use wasmi::{Engine, Linker, Module, Store, TypedFunc, core::TrapCode};
+use wasmi::{Engine, Module, TypedFunc, core::TrapCode};
 
 use crate::{job::JobRequest, state::read_chain_state};
 use crate::api::{register_constants, register_host_functions};
 use crate::chain::Chain;
 
 const FUEL_PER_BATCH: u64 = 1_000_000;
-
-/// Runtime context available to host functions during execution.
-#[derive(Clone)]
-pub struct ExecutionContext {
-    pub request: JobRequest,
-    // Queue of function references to invoke in the WASM module.
-    pub pending_callbacks: VecDeque<i32>,
-    // Add other fields as needed (logs, async results, etc.)
-}
-
-/// Runtime state for a job execution.
-// TODO: Maybe don't need this, inline into exeuction function again.
-struct JobExecution {
-    pub store: wasmi::Store<ExecutionContext>,
-    pub instance: wasmi::Instance,
-    // TODO: Keep a queue of callbacks to invoke and futures to poll.
-}
 
 pub async fn execute_job(chain: Chain, job_id: u64) -> Result<(), String> {
     let request = read_chain_state(&chain, |state| {
@@ -36,20 +20,59 @@ pub async fn execute_job(chain: Chain, job_id: u64) -> Result<(), String> {
     
     // TODO: Verify status is "pending" and set to "in progress".
 
-    let mut execution = JobExecution::init(request.clone(), binary)?;
-    execution.execute().await?;
+    let mut execution = JobExecution::init(request.clone(), binary, false)?;
+    execution.call_by_name("main".to_string())?;
+
+    // Process any pending callbacks registered by host functions
+    // TODO: Support actual async operations. Commit gas and state as needed.
+    while let Some(callback_index) = execution.store.data_mut().pending_callbacks.pop_front() {
+        ic_cdk::println!("Executing callback with index: {}", callback_index);
+        execution.call_by_reference(callback_index)?;
+    }
 
     Ok(())
 }
 
-fn _log_current_state() {
-    ic_cdk::println!("Instruction counter: {:?}", ic_cdk::api::instruction_counter());
-    ic_cdk::println!("Call Context Instruction counter: {:?}", ic_cdk::api::call_context_instruction_counter());
+pub fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionResult, String> {
+    let mut execution = JobExecution::init(request.clone(), wasm, true)?;
+    execution.call_by_name("main".to_string())?;
+
+    if execution.store.data_mut().pending_callbacks.len() > 0 {
+        return Err("Async callbacks not supported in simulation yet".to_string());
+    }
+
+    Ok(ExecutionResult {
+        logs: vec!["Simulation completed successfully".to_string()],
+    })
+}
+
+/// Runtime context available to host functions during execution.
+#[derive(Clone)]
+pub struct ExecutionContext {
+    pub request: JobRequest,
+    pub simulation: bool,
+    // Queue of function references to invoke in the WASM module.
+    pub pending_callbacks: VecDeque<i32>,
+    // Add other fields as needed (logs, async results, etc.)
+}
+
+#[derive(Clone, Debug, CandidType)]
+pub struct ExecutionResult {
+    pub logs: Vec<String>,
+    // Add other fields as needed (gas used, state changes, etc.)
+}
+
+/// Runtime state for a job execution.
+// TODO: Maybe don't need this, inline into exeuction function again.
+struct JobExecution {
+    pub store: wasmi::Store<ExecutionContext>,
+    pub instance: wasmi::Instance,
+    // TODO: Keep a queue of callbacks to invoke and futures to poll.
 }
 
 impl JobExecution {
     /// Creates a wasmi Engine and initializes the module. 
-    pub fn init(request: JobRequest, wasm: &[u8]) -> Result<Self, String> {
+    pub fn init(request: JobRequest, wasm: &[u8], simulation: bool) -> Result<Self, String> {
         let mut config = wasmi::Config::default();
         config.consume_fuel(true);
         let engine = Engine::new(&config);
@@ -58,6 +81,7 @@ impl JobExecution {
         // Create store with execution context
         let context = ExecutionContext {
             request: request.clone(),
+            simulation: simulation,
             pending_callbacks: VecDeque::new(),
         };
         let mut store = wasmi::Store::new(module.engine(), context);
@@ -88,43 +112,30 @@ impl JobExecution {
         })
     }
 
-    /// Executes the main() function as well as any asynchronous callbacks.
-    async fn execute(&mut self) -> Result<(), String> {
-        self.call_by_name("main".to_string()).await?;
-
-        // Process any pending callbacks registered by host functions
-        while let Some(callback_index) = self.store.data_mut().pending_callbacks.pop_front() {
-            ic_cdk::println!("Executing callback with index: {}", callback_index);
-            self.call_by_reference(callback_index).await?;
-        }
-
-        Ok(())
-    }
-
     /// Calls a function of the WASM module by name.
-    async fn call_by_name(&mut self, function_name: String) -> Result<(), String> {
+    fn call_by_name(&mut self, function_name: String) -> Result<(), String> {
         ic_cdk::println!("Executing WASM function {:?}...", function_name);
 
         // We interrupt and resume execution based on fuel consumption.
         let func = self.instance.get_typed_func::<(), ()>(&self.store, &function_name)
             .map_err(|e| format!("Failed to get function {:?}: {}", function_name, e))?;
-        self.call_func(func, ()).await
+        self.call_func(func, ())
     }
 
     /// Calls a WASM function by table index (function reference).
     /// This is used for callbacks passed from WASM to host functions.
-    async fn call_by_reference(&mut self, func_index: i32) -> Result<(), String> {
+    fn call_by_reference(&mut self, func_index: i32) -> Result<(), String> {
         ic_cdk::println!("Executing WASM callback {:?}...", func_index);
 
         // We interrupt and resume execution based on fuel consumption.
         // TODO: Allow rejection
         let func = self.instance.get_typed_func::<(i32, i32), ()>(&self.store, "__frosty_resolve")
             .map_err(|e| format!("Failed to get function {:?}: {}", "__frosty_resolve", e))?;
-        self.call_func(func, (func_index, 0)).await
+        self.call_func(func, (func_index, 0))
     }
 
     /// Calls a function of the WASM module, handling fuel consumption and errors.
-    async fn call_func<Params: WasmParams>(&mut self, function: TypedFunc<Params, ()>, params: Params) -> Result<(), String> {
+    fn call_func<Params: WasmParams>(&mut self, function: TypedFunc<Params, ()>, params: Params) -> Result<(), String> {
         loop {
             match function.call(&mut self.store, params) {
                 Ok(()) => {

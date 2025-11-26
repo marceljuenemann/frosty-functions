@@ -10,40 +10,46 @@
 
 <div class="mb-3">
   @if (this.compilationResult) {
-    @if (this.compilationResult.success) {
+    <!-- 1. Compilation result -->
+    @if (!this.compilationResult.success) {
+      <div class="alert alert-danger" role="alert">
+        <div><b>Compilation Error: {{ this.compilationResult.error }}</b></div>
+        <pre style="max-height: 300px">{{ this.compilationResult.logs }}</pre>
+      </div>
+    } @else {
       <div class="alert alert-success mb-3" role="alert">
         <b>Compiled successfully.</b>
         (Output: <a [href]="watUrl" target="_blank">WAT</a>,
         <a [href]="wasmUrl" target="_blank">WASM</a>)
       </div>
 
+      <!-- 2. Simulation result -->
       @let sim = this.simulation();
       @if (sim) {
         @if (sim.status === 'pending') {
           <div class="alert alert-info" role="alert">
             <div><b>Running simulation...</b> (on a single Internet Computer node)</div>
           </div>
-        }
-        @if (sim.status === 'error') {
+        } @else if (sim.status === 'error') {
           <div class="alert alert-danger" role="alert" style="max-height: 300px; overflow: auto">
             <div><b>Simulation failed unexpectedly</b></div>
             <pre>{{ sim.error.message }}</pre>
           </div>
-        }
-          <!----
         } @else {
           <div class="alert alert-success" role="alert">
-            <div><b>✅ Simulation completed successfully.</b></div>
-            <pre style="max-height: 300px">{{ this.simulation().logs.join('\n') }}</pre>
+            <div><b>Simulation completed.</b> (on a single node of the Internet Computer)</div>
+            TODO: Display gas usage
+
+            <!-- 3. Execution result -->
+
+            <!-- 4. Logs -->
+            <pre>
+              <b>Logs</b>
+              {{ sim.result.logs.join('\n') }}
+            </pre>
           </div>
         }
-      -->
       }
-    } @else {
-      <div class="alert alert-danger" role="alert">
-        <div><b>Compilation Error: {{ this.compilationResult.error }}</b></div>
-        <pre style="max-height: 300px">{{ this.compilationResult.logs }}</pre>
-      </div>
     }
   }
 </div>

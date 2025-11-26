@@ -9,7 +9,7 @@ use chain::{Chain, EvmChain, ChainState, Address};
 use job::Job;
 use state::{mutate_state};
 
-use crate::job::JobRequest;
+use crate::{execution::ExecutionResult, job::JobRequest};
 
 #[ic_cdk::init]
 fn init() {
@@ -33,8 +33,8 @@ fn get_job_info(chain: Chain, job_id: u64) -> Result<Job, String> {
 }
 
 #[ic_cdk::query]
-fn simulate_execution(request: JobRequest, wasm: Vec<u8>) -> Result<(), String> {
-    Err(format!("Not implemented yet. Binaray size: {}", wasm.len()))
+fn simulate_execution(request: JobRequest, wasm: Vec<u8>) -> Result<ExecutionResult, String> {
+    crate::execution::simulate_job(request, &wasm)
 }
 
 #[ic_cdk::update]
