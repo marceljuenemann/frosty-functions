@@ -4,6 +4,9 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "./out-tsc/app",
+    "paths": {
+      "declarations/*": ["../declarations/*"]
+    },
     "types": [
       "@angular/localize"
     ]

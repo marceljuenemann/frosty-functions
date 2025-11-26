@@ -30,7 +30,9 @@ export class FrostyFunctionEditor {
   }
 
   async simulate() {
-    const result = await this.compile();
+    if (await this.compile() && this.compilationResult?.success) {
+      await this.frostyFunctionService.simulate(this.compilationResult.wasm);
+    }
   }
 
   @HostListener('window:keydown', ['$event'])

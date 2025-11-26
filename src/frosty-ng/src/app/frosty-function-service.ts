@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
+import { createActor, frosty_functions_backend } from 'declarations/frosty-functions-backend';
 import asc from "assemblyscript/asc";
+import { JobRequest } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
 
 export type CompilationResult = {
   success: true
@@ -16,6 +18,16 @@ export type CompilationResult = {
   providedIn: 'root',
 })
 export class FrostyFunctionService {
+
+  private backend = createActor(
+    // TODO: Inject from environment variable
+    "uzt4z-lp777-77774-qaabq-cai",
+    {
+      agentOptions: {
+        host: 'http://localhost:4943',
+      }
+    }
+  )
 
   /**
    * Compiles the provided function code into a WebAssembly binary.
@@ -69,6 +81,20 @@ export class FrostyFunctionService {
    * Invokes the Frosty Function backend to simulate the function with
    * the given WASM binary.
    */
-  simulate(wasm: Uint8Array): void {
+  async simulate(wasm: Uint8Array): Promise<void> {
+    const request: JobRequest = {
+      transaction_hash: [],
+      block_hash: [],
+      data: new Uint8Array(),
+      chain: { Evm: { Localhost: null } },
+      on_chain_id: [],
+      block_number: [],
+      function_hash: new Uint8Array(),
+      gas_payment: BigInt(0),
+      caller: { EvmAddress: '0x0000000000000000000000000000000000000000' },
+    };
+    return this.backend.simulate_execution(request, wasm).then(result => {
+      console.log(result);
+    });
   }
 }
