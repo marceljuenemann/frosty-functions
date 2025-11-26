@@ -35,7 +35,6 @@ export class FrostyFunctionEditor {
     } catch (error) {
       error = error instanceof Error ? error : new Error(`${error}`)
       this.simulation.set({status: 'error', error: error as Error});
-      console.log("Simulation error:", error);
     }
   }
 
