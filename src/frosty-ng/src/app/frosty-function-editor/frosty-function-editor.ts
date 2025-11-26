@@ -1,6 +1,7 @@
 import { Component, HostListener, signal } from '@angular/core';
 import { MonacoEditor } from '../monaco-editor/monaco-editor';
 import { CompilationResult, FrostyFunctionService, SimulationResult } from '../frosty-function-service';
+import { LogViewer } from '../log-viewer/log-viewer';
 
 type SimulationState =
   { status: 'pending' } |
@@ -9,7 +10,7 @@ type SimulationState =
 
 @Component({
   selector: 'frosty-function-editor',
-  imports: [MonacoEditor],
+  imports: [MonacoEditor, LogViewer],
   templateUrl: './frosty-function-editor.html',
   styleUrl: './frosty-function-editor.scss',
 })

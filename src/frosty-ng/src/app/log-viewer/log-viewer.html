@@ -1,0 +1,26 @@
+<div class="card shadow-sm">
+  <div class="card-header d-flex align-items-center justify-content-between py-2">
+    <div class="fw-semibold">Logs</div>
+    <!--
+    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="copyLogs()" title="Copy logs">
+      📋 Copy
+    </button>
+    -->
+  </div>
+  <div class="card-body p-0">
+    <div class="log-container">
+      @for (log of this.logs(); track log) {
+        <div class="log-line">
+          @if ('UserDefault' in log) {
+            <span class="badge rounded-pill bg-primary-subtle text-primary-emphasis me-2">USER</span>
+            <span class="font-monospace log-text">{{ log.UserDefault }}</span>
+          } @else if ('System' in log) {
+            <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis me-2">SYSTEM</span>
+            <span class="font-monospace log-text">{{ log.System }}</span>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>
+

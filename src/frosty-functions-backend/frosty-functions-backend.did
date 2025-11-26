@@ -1,7 +1,7 @@
 type Address = variant { EvmAddress : text };
 type Chain = variant { Evm : EvmChain };
 type EvmChain = variant { ArbitrumSepolia; ArbitrumOne; Localhost };
-type ExecutionResult = record { logs : vec text };
+type ExecutionResult = record { logs : vec LogEntry };
 type Job = record { request : JobRequest };
 type JobRequest = record {
   transaction_hash : opt text;
@@ -14,6 +14,7 @@ type JobRequest = record {
   gas_payment : nat;
   caller : Address;
 };
+type LogEntry = variant { System : text; UserDefault : text };
 type Result = variant { Ok; Err : text };
 type Result_1 = variant { Ok : Job; Err : text };
 type Result_2 = variant { Ok : vec nat64; Err : text };

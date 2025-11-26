@@ -1,7 +1,7 @@
 use std::{cmp::min};
 
 use wasmi::{Caller, Error, Func, Global, Linker, Memory, Mutability, Store, Val, errors::LinkerError};
-use crate::execution::ExecutionContext;
+use crate::execution::{ExecutionContext, LogEntry};
 
 const CONSOLE_LOG_MAX_LEN: usize = 10_000;
 
@@ -44,11 +44,12 @@ fn example_async_host_function(mut caller: Caller<ExecutionContext>, callback: i
 }
 
 // TODO: Support console.error etc.
-fn console_log(caller: Caller<ExecutionContext>, message_ptr: i32) {
+fn console_log(mut caller: Caller<ExecutionContext>, message_ptr: i32) {
     let message = read_utf16_string(&caller, message_ptr, CONSOLE_LOG_MAX_LEN)
         // TODO: Return error?
         .unwrap_or_else(|e| format!("(failed to read log message: {})", e));
-    ic_cdk::println!("console.log: {}", message);
+    caller.data_mut().log(LogEntry::UserDefault(message.clone()));
+    ic_cdk::println!("console.log: {}", message);  // TODO: remove
     // TODO: Charge cycles for logs storage.
 }
 

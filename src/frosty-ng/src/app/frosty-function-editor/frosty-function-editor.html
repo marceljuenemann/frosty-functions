@@ -42,13 +42,10 @@
             TODO: Display gas usage
 
             <!-- 3. Execution result -->
-
-            <!-- 4. Logs -->
-            <pre>
-              <b>Logs</b>
-              {{ sim.result.logs.join('\n') }}
-            </pre>
           </div>
+
+          <!-- 4. Logs -->
+          <app-log-viewer [logs]="sim.result.logs"></app-log-viewer>
         }
       }
     }

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { createActor, frosty_functions_backend, idlFactory } from 'declarations/frosty-functions-backend';
 import asc from "assemblyscript/asc";
-import { _SERVICE, JobRequest } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
+import { _SERVICE, ExecutionResult, JobRequest, Result_3 } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
 import { Actor, ActorMethodMappedExtended, ActorSubclass, HttpAgent } from '@icp-sdk/core/agent';
 
 export type CompilationResult = {
@@ -15,9 +15,8 @@ export type CompilationResult = {
   logs: string
 }
 
-export type SimulationResult = {
-  canisterId: string,
-  logs: string[]
+export interface SimulationResult extends ExecutionResult {
+  canisterId: string
 }
 
 const CANISTER_ID = "uxrrr-q7777-77774-qaaaq-cai";  // Localhost
@@ -100,6 +99,7 @@ export class FrostyFunctionService {
    * the given WASM binary.
    */
   async simulate(wasm: Uint8Array): Promise<SimulationResult> {
+    // TODO: Configurable request.
     const request: JobRequest = {
       transaction_hash: [],
       block_hash: [],
@@ -118,8 +118,6 @@ export class FrostyFunctionService {
     if ('Err' in result) {
       throw new Error(`${result.Err}`);
     }
-
-    // return { logs: []}
-    return { logs: result.Ok.logs, canisterId: CANISTER_ID };
+    return { canisterId: CANISTER_ID, ...result.Ok };
   }
 }

@@ -42,23 +42,41 @@ pub fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionResult,
     }
 
     Ok(ExecutionResult {
-        logs: vec!["Simulation completed successfully".to_string()],
+        logs: execution.store.data().logs.clone(),
     })
 }
 
+/**
+ * Log entry with different log levels.
+ */
+#[derive(Clone, Debug, CandidType)]
+pub enum LogEntry {
+    System(String),
+    UserDefault(String),
+}
+
 /// Runtime context available to host functions during execution.
-#[derive(Clone)]
 pub struct ExecutionContext {
     pub request: JobRequest,
     pub simulation: bool,
+    // Logs written during the current execution. Will be commited
+    // to stable memory before yielding execution.
+    pub logs: Vec<LogEntry>,
     // Queue of function references to invoke in the WASM module.
     pub pending_callbacks: VecDeque<i32>,
     // Add other fields as needed (logs, async results, etc.)
 }
 
+impl ExecutionContext {
+    pub fn log(&mut self, entry: LogEntry) {
+        self.logs.push(entry);
+    }
+}
+
 #[derive(Clone, Debug, CandidType)]
 pub struct ExecutionResult {
-    pub logs: Vec<String>,
+    // TODO: Multiple invocations
+    pub logs: Vec<LogEntry>,
     // Add other fields as needed (gas used, state changes, etc.)
 }
 
@@ -82,6 +100,7 @@ impl JobExecution {
         let context = ExecutionContext {
             request: request.clone(),
             simulation: simulation,
+            logs: Vec::new(),
             pending_callbacks: VecDeque::new(),
         };
         let mut store = wasmi::Store::new(module.engine(), context);
