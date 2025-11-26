@@ -32,6 +32,13 @@ export class FrostyFunctionService {
         console.log('readFile', { name, basedir });
         if (name === 'function.ts') {
           return code
+        } else if (name === 'node_modules/frosty/fib.ts') {
+          // TODO: Include actual API. (ideally at compile-time)
+          return `export function fib2(n: i32): i32 {
+                    if (n <= 1) return n;
+                    return fib2(n - 1) + fib2(n - 2);
+                  }
+            `;
         }
         return null
       },
