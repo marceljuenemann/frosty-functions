@@ -21,6 +21,7 @@ pub fn register_host_functions(linker: &mut Linker<ExecutionContext>, store: &mu
     // TODO: Define a macro to reduce boilerplate.
     linker.define("env", "abort", Func::wrap(&mut *store, abort_host))?;
     linker.define("env", "console.log", Func::wrap(&mut *store, console_log))?;
+    linker.define("env", "seed", Func::wrap(&mut *store, seed))?;
     linker.define("❄️", "calldata", Func::wrap(&mut *store, calldata))?;
     linker.define("❄️", "evm_chain_id", Func::wrap(&mut *store, evm_chain_id))?;
     linker.define("❄️", "on_chain_id", Func::wrap(&mut *store, on_chain_id))?;
@@ -32,6 +33,14 @@ pub fn register_host_functions(linker: &mut Linker<ExecutionContext>, store: &mu
 fn abort_host(message_ptr: i32, file_ptr: i32, line: i32, column: i32) {
     ic_cdk::println!("AssemblyScript abort at {}:{} (msg_ptr={}, file_ptr={})", line, column, message_ptr, file_ptr);
     ic_cdk::trap("AssemblyScript abort");
+}
+
+fn seed(caller: Caller<ExecutionContext>) -> Result<f64, Error> {
+    // TODO: Require asynchronous initialization first. In fact, will need
+    // to provide a separate API as we can't make seed() asynchronous.
+    // caller.data().log(LogType::System, "Seeding randomness with VRF");
+    // return ic_cdk::api::management_canister::main::raw_rand() as i64;
+    Err(Error::new("Verifiable Random Function not yet implemented"))
 }
 
 fn example_host_function(caller: Caller<ExecutionContext>) -> i64 {
