@@ -69,11 +69,11 @@ pub async fn execute_job(chain: Chain, job_id: u64) -> Result<(), String> {
             .ok_or_else(|| format!("Job not found: {}", job_id))
             .map(|job| job.request.clone())
     })?;
-    let binary = include_bytes!("../../assembly-playground/build/debug.wasm");
+    let binary = [];  // include_bytes!("../../assembly-playground/build/debug.wasm");
     
     // TODO: Verify status is "pending" and set to "in progress".
 
-    let mut execution = JobExecution::init(request.clone(), binary, false)?;
+    let mut execution = JobExecution::init(request.clone(), &binary, false)?;
     execution.call_by_name("main".to_string())?;
 
     // Process any pending callbacks registered by host functions

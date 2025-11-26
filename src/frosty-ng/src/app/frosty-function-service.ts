@@ -104,7 +104,7 @@ export class FrostyFunctionService {
       block_hash: [],
       data: this.parseHex("0xdeadbeef"),
       chain: { Evm: { Localhost: null } },
-      on_chain_id: [],
+      on_chain_id: [BigInt(42)],
       block_number: [],
       function_hash: new Uint8Array(32),
       gas_payment: BigInt(0),

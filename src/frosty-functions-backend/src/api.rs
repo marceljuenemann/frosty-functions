@@ -21,6 +21,7 @@ pub fn register_host_functions(linker: &mut Linker<ExecutionContext>, store: &mu
     linker.define("env", "abort", Func::wrap(&mut *store, abort_host))?;
     linker.define("env", "console.log", Func::wrap(&mut *store, console_log))?;
     linker.define("❄️", "calldata", Func::wrap(&mut *store, calldata))?;
+    linker.define("❄️", "on_chain_id", Func::wrap(&mut *store, on_chain_id))?;
     linker.define("❄️", "example_host_function", Func::wrap(&mut *store, example_host_function))?;
     linker.define("❄️", "example_async_host_function", Func::wrap(&mut *store, example_async_host_function))?;
     Ok(())
@@ -59,6 +60,17 @@ fn calldata(mut caller: Caller<ExecutionContext>, buffer_ptr: i32) -> Result<(),
     ic_cdk::println!("calldata host function called, writing {} bytes to ptr {}", calldata.len(), buffer_ptr);
     get_memory(&caller).write(&mut caller, buffer_ptr as usize, &calldata)?;
     Ok(())  // TODO: remove?
+}
+
+fn on_chain_id(caller: Caller<ExecutionContext>) -> i64 {
+    let context = caller.data();
+    if let Some(id) = context.request.on_chain_id.clone() {
+        // TODO: Proper error handling.
+        let id: u64 = id.try_into().unwrap();
+        id as i64
+    } else {
+        -1
+    }
 }
 
 // Reads a UTF-16LE encoded string from the guest memory at the given pointer.

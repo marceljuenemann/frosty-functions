@@ -1,49 +1,11 @@
-import { CALLDATA, example_async } from "frosty";
-import { Callback, Promise } from "frosty/promise";
-
-class SimpleCallback implements Callback<string> {
-  onFulfilled(value: string): void {
-    console.log(`SimpleCallback fulfilled with value: ${value}`);
-  }
-
-  onRejected(reason: Error): void {
-    console.log(`SimpleCallback rejected with reason: ${reason.message}`);
-  }
-}
+import { CALLDATA, JOB_ID } from "frosty";
 
 export function main(): void {
   console.log("Welcome to main()");
 
+  console.log(`Job ID is: ${JOB_ID}`);
   console.log(`Calldata is: ${CALLDATA}`);
 
-
-
-  let res = new Promise<string>();
-  res.resolve("42");
-  console.log(`Resolved promise value is: ${res}`);
-
-  let rej = new Promise<i32>();
-  rej.reject(new Error("Rejected promise"));
-  console.log(`Resolved promise value is: ${rej}`);
-
-
-  res.addCallback(new SimpleCallback());
-  let prom = res.map<i32>((value) => {
-    console.log(`then called with ${value}`);
-    return value.length;
-  });
-
-  prom.then((value) => {
-    console.log(`Final length value: ${value}`);
-  });
-
-  /*
-  res.then<string>((value) => value + " and ")
-    .then<string>((value) => value + " more")
-    .then<void>((value) => {
-      console.log(`Final resolved value: ${value}`);
-    });
-*/
 /*
   example_async()
     .map<string>((value) => "Mapped value: " + value.toString())
