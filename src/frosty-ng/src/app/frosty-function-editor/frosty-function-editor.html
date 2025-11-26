@@ -7,13 +7,34 @@
 <div class="mb-3">
   @if (this.compilationResult) {
     @if (this.compilationResult.success) {
-      <div>
-        <b>✅ Compiled successfully. </b>
-        Output:&nbsp;
-        <a [href]="watUrl" target="_blank">WAT</a>&nbsp;
-        <a [href]="wasmUrl" target="_blank">WASM</a>&nbsp;
+      <div class="alert alert-success mb-3" role="alert">
+        <b>Compiled successfully.</b>
+        (Output: <a [href]="watUrl" target="_blank">WAT</a>,
+        <a [href]="wasmUrl" target="_blank">WASM</a>)
       </div>
 
+      @let sim = this.simulation();
+      @if (sim) {
+        @if (sim.status === 'pending') {
+          <div class="alert alert-info" role="alert">
+            <div><b>Running simulation...</b> (on a single Internet Computer node)</div>
+          </div>
+        }
+        @if (sim.status === 'error') {
+          <div class="alert alert-danger" role="alert" style="max-height: 300px; overflow: auto">
+            <div><b>Simulation Error</b></div>
+            <pre>{{ sim.error.message }}</pre>
+          </div>
+        }
+          <!----
+        } @else {
+          <div class="alert alert-success" role="alert">
+            <div><b>✅ Simulation completed successfully.</b></div>
+            <pre style="max-height: 300px">{{ this.simulation().logs.join('\n') }}</pre>
+          </div>
+        }
+      -->
+      }
     } @else {
       <div class="alert alert-danger" role="alert">
         <div><b>Compilation Error: {{ this.compilationResult.error }}</b></div>

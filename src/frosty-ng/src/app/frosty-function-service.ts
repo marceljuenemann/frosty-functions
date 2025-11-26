@@ -14,6 +14,8 @@ export type CompilationResult = {
   logs: string
 }
 
+export type SimulationResult = { logs: [] }
+
 @Injectable({
   providedIn: 'root',
 })
@@ -21,7 +23,7 @@ export class FrostyFunctionService {
 
   private backend = createActor(
     // TODO: Inject from environment variable
-    "uzt4z-lp777-77774-qaabq-cai",
+    "uxrrr-q7777-77774-qaaaq-cai",
     {
       agentOptions: {
         host: 'http://localhost:4943',
@@ -81,7 +83,7 @@ export class FrostyFunctionService {
    * Invokes the Frosty Function backend to simulate the function with
    * the given WASM binary.
    */
-  async simulate(wasm: Uint8Array): Promise<void> {
+  async simulate(wasm: Uint8Array): Promise<SimulationResult> {
     const request: JobRequest = {
       transaction_hash: [],
       block_hash: [],
@@ -93,8 +95,11 @@ export class FrostyFunctionService {
       gas_payment: BigInt(0),
       caller: { EvmAddress: '0x0000000000000000000000000000000000000000' },
     };
-    return this.backend.simulate_execution(request, wasm).then(result => {
-      console.log(result);
-    });
+    return this.backend.simulate_execution(request, wasm).then(
+      (result) => {
+        console.log('Simulation result:', result);
+        return { logs: [] };
+      }
+    );
   }
 }
