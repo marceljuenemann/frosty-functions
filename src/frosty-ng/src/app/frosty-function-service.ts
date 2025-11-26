@@ -100,15 +100,15 @@ export class FrostyFunctionService {
   async simulate(wasm: Uint8Array): Promise<SimulationResult> {
     // TODO: Configurable request.
     const request: JobRequest = {
+      chain: { Evm: { ArbitrumSepolia: null } },
       transaction_hash: [],
       block_hash: [],
-      data: this.parseHex("0xdeadbeef"),
-      chain: { Evm: { Localhost: null } },
-      on_chain_id: [BigInt(42)],
       block_number: [],
-      function_hash: new Uint8Array(32),
-      gas_payment: BigInt(0),
       caller: { EvmAddress: '0x0000000000000000000000000000000000000000' },
+      function_hash: new Uint8Array(32),
+      on_chain_id: [BigInt(42)],
+      data: this.parseHex("0xdeadbeef"),
+      gas_payment: BigInt(0),
     };
 
     const actor = await this.actor();

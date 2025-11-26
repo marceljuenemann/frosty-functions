@@ -1,7 +1,7 @@
 use std::{cmp::min};
 
 use wasmi::{Caller, Error, Func, Global, Linker, Memory, Mutability, Store, Val, errors::LinkerError};
-use crate::execution::{ExecutionContext, LogEntry, LogType};
+use crate::{Chain, execution::{ExecutionContext, LogEntry, LogType}};
 
 const CONSOLE_LOG_MAX_LEN: usize = 10_000;
 
@@ -18,9 +18,11 @@ pub fn register_constants(linker: &mut Linker<ExecutionContext>, store: &mut Sto
 
 /// Registers all host functions into the given linker.
 pub fn register_host_functions(linker: &mut Linker<ExecutionContext>, store: &mut Store<ExecutionContext>) -> Result<(), LinkerError> {
+    // TODO: Define a macro to reduce boilerplate.
     linker.define("env", "abort", Func::wrap(&mut *store, abort_host))?;
     linker.define("env", "console.log", Func::wrap(&mut *store, console_log))?;
     linker.define("❄️", "calldata", Func::wrap(&mut *store, calldata))?;
+    linker.define("❄️", "evm_chain_id", Func::wrap(&mut *store, evm_chain_id))?;
     linker.define("❄️", "on_chain_id", Func::wrap(&mut *store, on_chain_id))?;
     linker.define("❄️", "example_host_function", Func::wrap(&mut *store, example_host_function))?;
     linker.define("❄️", "example_async_host_function", Func::wrap(&mut *store, example_async_host_function))?;
@@ -52,6 +54,13 @@ fn console_log(mut caller: Caller<ExecutionContext>, message_ptr: i32) {
     caller.data_mut().log(LogType::Default, message.clone());
     ic_cdk::println!("console.log: {}", message);  // TODO: remove
     // TODO: Charge cycles for logs storage.
+}
+
+fn evm_chain_id(caller: Caller<ExecutionContext>) -> u64 {
+    match &caller.data().request.chain  {
+        Chain::Evm(id) => crate::evm::evm_chain_id(id.clone()),
+        _ => 0,
+    }
 }
 
 /// Writes the calldata into the provided buffer, which is expected to be of CALLDATA_SIZE.

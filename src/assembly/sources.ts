@@ -1,6 +1,8 @@
 // Requires a runtime that loads *.as files as raw text.
 import frosty from './frosty/index.as'
+import evm from './frosty/evm.as'
 import promise from './frosty/promise.as'
+
 import internal from './frosty/internal.as'
 import internal_async from './frosty/internal/async.as'
 
@@ -9,6 +11,7 @@ import internal_async from './frosty/internal/async.as'
  */
 export const FROSTY_SOURCES = new Map<string, string>([
   ['frosty', frosty],
+  ['frosty/evm', evm],
   ['frosty/index', frosty],
   ['frosty/promise', promise],
   ['frosty/internal', internal],
