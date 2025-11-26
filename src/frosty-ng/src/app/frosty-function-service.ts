@@ -102,7 +102,7 @@ export class FrostyFunctionService {
     const request: JobRequest = {
       transaction_hash: [],
       block_hash: [],
-      data: new Uint8Array(),
+      data: this.parseHex("0xdeadbeef"),
       chain: { Evm: { Localhost: null } },
       on_chain_id: [],
       block_number: [],
@@ -118,5 +118,14 @@ export class FrostyFunctionService {
       throw new Error(`${result.Err}`);
     }
     return { canisterId: CANISTER_ID, ...result.Ok };
+  }
+
+  // TODO: Use ethers or similar library.
+  private parseHex(hex: string): Uint8Array {
+    const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex;
+    const padded = cleanHex.length % 2 ? '0' + cleanHex : cleanHex;
+    return new Uint8Array(
+      padded.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))
+    );
   }
 }

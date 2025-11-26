@@ -1,4 +1,4 @@
-import { CALLDATA_SIZE, calldata, example_async } from "frosty";
+import { CALLDATA, example_async } from "frosty";
 import { Callback, Promise } from "frosty/promise";
 
 class SimpleCallback implements Callback<string> {
@@ -14,8 +14,7 @@ class SimpleCallback implements Callback<string> {
 export function main(): void {
   console.log("Welcome to main()");
 
-  console.log(`Calldata size is: ${CALLDATA_SIZE}`);
-  console.log(`Calldata is: ${calldata()}`);
+  console.log(`Calldata is: ${CALLDATA}`);
 
 
 
@@ -45,7 +44,7 @@ export function main(): void {
       console.log(`Final resolved value: ${value}`);
     });
 */
-
+/*
   example_async()
     .map<string>((value) => "Mapped value: " + value.toString())
     .then(
@@ -56,6 +55,5 @@ export function main(): void {
         console.log(`example_async failed with error: ${err.message}`);
       }
     );
-
-  console.log("main() finished");
+*/
 }
