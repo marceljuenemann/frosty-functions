@@ -2,11 +2,13 @@ import { Component, HostListener, signal } from '@angular/core';
 import { MonacoEditor } from '../monaco-editor/monaco-editor';
 import { CompilationResult, FrostyFunctionService, SimulationResult } from '../frosty-function-service';
 import { LogViewer } from '../log-viewer/log-viewer';
+import exampleCode from '../../../../assembly/example.as'
 
 type SimulationState =
   { status: 'pending' } |
   { status: 'done', result: SimulationResult } |
   { status: 'error', error: Error };
+
 
 @Component({
   selector: 'frosty-function-editor',
@@ -15,7 +17,7 @@ type SimulationState =
   styleUrl: './frosty-function-editor.scss',
 })
 export class FrostyFunctionEditor {
-  code = 'export function main(): void {\n  console.log("Hello, Frosty!");\n}\n';
+  code = exampleCode;
 
   compilationResult: CompilationResult | null = null
   watUrl: string | null = null

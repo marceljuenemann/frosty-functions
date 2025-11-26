@@ -4,7 +4,7 @@ import { Commit, LogEntry } from 'declarations/frosty-functions-backend/frosty-f
 
 @Component({
   selector: 'app-log-viewer',
-  imports: [DatePipe],
+  imports: [],
   templateUrl: './log-viewer.html',
   styleUrl: './log-viewer.scss',
 })

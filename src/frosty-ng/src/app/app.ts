@@ -5,7 +5,7 @@ import { FrostyFunctionEditor } from './frosty-function-editor/frosty-function-e
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, NgbAlert, FrostyFunctionEditor],
+  imports: [RouterOutlet, FrostyFunctionEditor],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
