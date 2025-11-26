@@ -10,6 +10,59 @@ use crate::chain::Chain;
 
 const FUEL_PER_BATCH: u64 = 1_000_000;
 
+/**
+ * Log entry with different log levels.
+ */
+#[derive(Clone, Debug, CandidType)]
+pub struct LogEntry {
+    pub level: LogType,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, CandidType)]
+pub enum LogType {
+    System,
+    Default,
+}
+
+/// Runtime context available to host functions during execution.
+pub struct ExecutionContext {
+    pub request: JobRequest,
+    pub simulation: bool,
+    // Logs written during the current execution. Will be commited
+    // to stable memory before yielding execution.
+    pub logs: Vec<LogEntry>,
+    // Queue of function references to invoke in the WASM module.
+    pub pending_callbacks: VecDeque<i32>,
+    // Add other fields as needed (logs, async results, etc.)
+}
+
+impl ExecutionContext {
+    pub fn log(&mut self, level: LogType, message: String) {
+        self.logs.push(LogEntry { level, message });
+    }
+}
+
+/// Each job execution can be spread across multiple "commits" if
+/// async functions are used. These correlate to a single ICP message.
+#[derive(Clone, Debug, CandidType)]
+pub struct Commit {
+    pub timestamp: u64,
+    pub source: CommitSource,
+    pub logs: Vec<LogEntry>,
+}
+
+#[derive(Clone, Debug, CandidType)]
+pub enum CommitSource {
+    Main,  // Initial execution of main()
+}
+
+#[derive(Clone, Debug, CandidType)]
+pub struct ExecutionResult {
+    pub commits: Vec<Commit>,
+    // Add other fields as needed (gas used, state changes, etc.)
+}
+
 pub async fn execute_job(chain: Chain, job_id: u64) -> Result<(), String> {
     let request = read_chain_state(&chain, |state| {
         state.jobs.get(&job_id)
@@ -36,48 +89,15 @@ pub async fn execute_job(chain: Chain, job_id: u64) -> Result<(), String> {
 pub fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionResult, String> {
     let mut execution = JobExecution::init(request.clone(), wasm, true)?;
     execution.call_by_name("main".to_string())?;
+    let commit = execution.commit(CommitSource::Main)?;
 
     if execution.store.data_mut().pending_callbacks.len() > 0 {
         return Err("Async callbacks not supported in simulation yet".to_string());
     }
 
     Ok(ExecutionResult {
-        logs: execution.store.data().logs.clone(),
+        commits: vec![commit],
     })
-}
-
-/**
- * Log entry with different log levels.
- */
-#[derive(Clone, Debug, CandidType)]
-pub enum LogEntry {
-    System(String),
-    UserDefault(String),
-}
-
-/// Runtime context available to host functions during execution.
-pub struct ExecutionContext {
-    pub request: JobRequest,
-    pub simulation: bool,
-    // Logs written during the current execution. Will be commited
-    // to stable memory before yielding execution.
-    pub logs: Vec<LogEntry>,
-    // Queue of function references to invoke in the WASM module.
-    pub pending_callbacks: VecDeque<i32>,
-    // Add other fields as needed (logs, async results, etc.)
-}
-
-impl ExecutionContext {
-    pub fn log(&mut self, entry: LogEntry) {
-        self.logs.push(entry);
-    }
-}
-
-#[derive(Clone, Debug, CandidType)]
-pub struct ExecutionResult {
-    // TODO: Multiple invocations
-    pub logs: Vec<LogEntry>,
-    // Add other fields as needed (gas used, state changes, etc.)
 }
 
 /// Runtime state for a job execution.
@@ -116,7 +136,7 @@ impl JobExecution {
 
         // Initialize and start the module instance.
         // TODO: Replace ic_cdk::println with custom logging to the job logs.
-        ic_cdk::println!("Executing job: {:?}", request.on_chain_id);
+        store.data_mut().log(LogType::System, format!("Instantiating WASM module"));
         let instance = linker.instantiate(&mut store, &module)
             .map_err(|e| format!("Failed to instantiate WASM module: {}", e))?
             // TODO: Allow fail if async host functions are called during initialization?
@@ -133,7 +153,7 @@ impl JobExecution {
 
     /// Calls a function of the WASM module by name.
     fn call_by_name(&mut self, function_name: String) -> Result<(), String> {
-        ic_cdk::println!("Executing WASM function {:?}...", function_name);
+        self.store.data_mut().log(LogType::System, format!("Invoking function: {}", function_name));
 
         // We interrupt and resume execution based on fuel consumption.
         let func = self.instance.get_typed_func::<(), ()>(&self.store, &function_name)
@@ -176,5 +196,17 @@ impl JobExecution {
                 }
             }
         }
+    }
+
+    /// Commits the current execution state, returning a Commit object.
+    /// State should be commited before yielding execution for async operations.
+    fn commit(&mut self, source: CommitSource) -> Result<Commit, String> {
+        let logs = self.store.data().logs.clone();
+        self.store.data_mut().logs.clear();  // TODO: Store in stable memory
+        Ok(Commit {
+            timestamp: ic_cdk::api::time(),
+            source,
+            logs,
+        })
     }
 }

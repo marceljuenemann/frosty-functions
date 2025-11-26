@@ -39,13 +39,12 @@
           <div class="alert alert-success" role="alert">
             <div><b>Simulation completed.</b>
             (Executed on <a href="https://dashboard.internetcomputer.org/canister/{{ sim.result.canisterId }}" target="_blank">{{ sim.result.canisterId }}</a>)</div>
-            TODO: Display gas usage
 
             <!-- 3. Execution result -->
           </div>
 
           <!-- 4. Logs -->
-          <app-log-viewer [logs]="sim.result.logs"></app-log-viewer>
+          <app-log-viewer [commits]="sim.result.commits"></app-log-viewer>
         }
       }
     }
