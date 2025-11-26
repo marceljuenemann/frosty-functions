@@ -18,6 +18,13 @@ export class MonacoEditor {
       bottom: 18,
       top: 18
     },
+    scrollBeyondLastLine: false,
+    scrollbar: {
+      alwaysConsumeMouseWheel: false
+    },
+    minimap: {
+      enabled: false
+    },
   })
 
   code = model<string>('')
