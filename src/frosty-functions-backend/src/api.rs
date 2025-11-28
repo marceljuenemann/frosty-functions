@@ -3,7 +3,7 @@ use std::{cmp::min};
 use alloy_primitives::Address;
 use ic_cdk::{api::call, call::Call};
 use wasmi::{Caller, Error, Func, Global, Linker, Memory, Mutability, Store, Val, errors::LinkerError};
-use crate::{Chain, execution::{ExecutionContext, LogType}};
+use crate::{Chain, chain::EvmChain, evm::transfer_funds, execution::{ExecutionContext, LogType}};
 
 const CONSOLE_LOG_MAX_LEN: usize = 10_000;
 
@@ -104,8 +104,9 @@ fn evm_callback(mut caller: Caller<ExecutionContext>, promise_id: i32, data_ptr:
     caller.data_mut().queue_task(
         promise_id,
         format!("EVM callback with amount {} and data 0x{}", amount, hex::encode(&data)),
-        Box::pin(async {
+        Box::pin(async move {
             ic_cdk::println!("Hello EVM!");
+            transfer_funds(EvmChain::Localhost, "0xe712a7e50aba019a6d225584583b09c4265b037b".to_string(), amount).await?;
             Ok(vec![0u8])
         }) 
     );

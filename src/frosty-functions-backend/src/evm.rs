@@ -1,15 +1,16 @@
 use alloy_sol_types::Error;
 use alloy_sol_types::abi::token::WordToken;
-use evm_rpc_client::CandidResponseConverter;
+use evm_rpc_client::AlloyResponseConverter;
 use evm_rpc_client::EvmRpcClient;
-use evm_rpc_client::IcRuntime;
 use evm_rpc_client::NoRetry;
 use evm_rpc_types::ConsensusStrategy;
+use evm_rpc_types::TransactionRequest;
 use evm_rpc_types::{LogEntry};
 use evm_rpc_types::Nat256;
 use evm_rpc_types::{BlockTag, Hex20, RpcServices};
 use alloy_sol_types::{sol, SolEvent};
 use alloy_primitives::B256;
+use ic_canister_runtime::IcRuntime;
 
 use crate::chain::Chain;
 use crate::chain::EvmChain;
@@ -17,16 +18,43 @@ use crate::job::JobRequest;
 use crate::chain::Address;
 
 // Define the event with Alloy's sol! macro (must match Bridge.sol exactly)
+// TODO: Figure out how to import Bridge.sol without pulling in getrandom 
+// #[sol(rpc)]
+// "../../contracts/Bridge.sol"
 sol! {
     #[derive(Debug)]
     event FunctionInvoked(address indexed caller, bytes32 indexed functionId, bytes data, uint256 gasPayment, uint256 jobId);
 }
 
+pub async fn transfer_funds( 
+    evm_chain: EvmChain,
+    to_address: String,
+    amount: u64,
+) -> Result<(), String> {
+    let client = create_client(evm_chain);
+
+    let transaction = TransactionRequest {
+        from: None,
+        to: Some(to_address.parse().map_err(|e| format!("Invalid address: {}", e))?),
+        value: Some(Nat256::from(amount)),
+        ..Default::default()
+    };
+    
+    ic_cdk::println!("TransactionRequest: {:?}", transaction);
+
+   //  client.send_raw_transaction(transaction.into());
+
+
+
+    Ok(())
+}
+
+
 /// Fetches requested jobs from the EVM chain.
 ///
 /// NOTE: This fetches jobs from unfinalized blocks that might be re-orged.
 pub async fn fetch_jobs(evm_chain: &EvmChain, contract_address: String, since_block: u64) -> Result<Vec<JobRequest>, String> {
-    let client = create_client(evm_chain);
+    let client = create_client(evm_chain.clone());
     let address_hex: Hex20 = contract_address.parse().map_err(|e| format!("Invalid address: {}", e))?;
     let mut filter = evm_rpc_types::GetLogsArgs::from(vec![address_hex]);
     filter.from_block = Some(BlockTag::Number(Nat256::from(since_block)));
@@ -37,7 +65,9 @@ pub async fn fetch_jobs(evm_chain: &EvmChain, contract_address: String, since_bl
     // so using a 2 out of 3 consensus strategy seems important.
     match client.get_logs(filter).send().await {
         evm_rpc_types::MultiRpcResult::Consistent(Ok(events)) => {
-          return jobs_from_events(evm_chain, events);
+            Err("Not yet implemented".to_string())
+            // TODO: Move to alloy types?
+            // return jobs_from_events(evm_chain, events);
         }
         evm_rpc_types::MultiRpcResult::Consistent(Err(err)) => {
             return Err(format!("EVM RPC error: {:?}", err));
@@ -92,16 +122,17 @@ fn decode_function_invocation(event: &LogEntry) -> Result<FunctionInvoked, Error
         .iter()
         .map(|hex32| WordToken(B256::from(hex32.as_array())))
         .collect::<Vec<_>>();
-    FunctionInvoked::decode_raw_log(topics, event.data.as_ref(), true)
+    FunctionInvoked::decode_raw_log(topics, event.data.as_ref())
 }
 
 /// Creates an EVM RPC client for the specified chain.
 /// 
 /// All calls are sent to three different providers and a 2 out of 3 consensus is required.
-fn create_client(evm_chain: &EvmChain) -> EvmRpcClient<IcRuntime, CandidResponseConverter, NoRetry> {
+fn create_client(evm_chain: EvmChain) -> EvmRpcClient<IcRuntime, AlloyResponseConverter, NoRetry> {
     let mut builder = EvmRpcClient::builder_for_ic()
-      .with_rpc_sources(get_rpc_sources(evm_chain));
-    if *evm_chain != EvmChain::Localhost {
+      .with_alloy()
+      .with_rpc_sources(get_rpc_sources(&evm_chain));
+    if evm_chain != EvmChain::Localhost {
         builder = builder.with_consensus_strategy(ConsensusStrategy::Threshold {
             total: Some(3),
             min: 2,
