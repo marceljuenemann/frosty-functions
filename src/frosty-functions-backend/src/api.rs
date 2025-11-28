@@ -1,9 +1,16 @@
-use std::{cmp::min};
+use std::{cmp::min, future::Future, pin::Pin};
 
+use ic_cdk::api::call;
 use wasmi::{Caller, Error, Func, Global, Linker, Memory, Mutability, Store, Val, errors::LinkerError};
 use crate::{Chain, execution::{ExecutionContext, LogEntry, LogType}};
 
 const CONSOLE_LOG_MAX_LEN: usize = 10_000;
+
+macro_rules! log {
+    ($caller:expr, $($arg:tt)*) => {
+        $caller.data_mut().log(LogType::System, format!($($arg)*));
+    };
+}
 
 /// Registers all constants into the given linker.
 pub fn register_constants(linker: &mut Linker<ExecutionContext>, store: &mut Store<ExecutionContext>) -> Result<(), LinkerError> {
@@ -16,6 +23,12 @@ pub fn register_constants(linker: &mut Linker<ExecutionContext>, store: &mut Sto
     Ok(())
 }
 
+macro_rules! register {
+    ($func:expr, $linker:expr, $store:expr) => {
+        $linker.define("❄️", stringify!($func), Func::wrap(&mut *$store, $func))?;
+    };
+}
+
 /// Registers all host functions into the given linker.
 pub fn register_host_functions(linker: &mut Linker<ExecutionContext>, store: &mut Store<ExecutionContext>) -> Result<(), LinkerError> {
     // TODO: Define a macro to reduce boilerplate.
@@ -24,9 +37,11 @@ pub fn register_host_functions(linker: &mut Linker<ExecutionContext>, store: &mu
     linker.define("env", "seed", Func::wrap(&mut *store, seed))?;
     linker.define("❄️", "calldata", Func::wrap(&mut *store, calldata))?;
     linker.define("❄️", "evm_chain_id", Func::wrap(&mut *store, evm_chain_id))?;
+    //linker.define("❄️", "ic_raw_rand", Func::wrap(&mut *store, ic_raw_rand))?;
     linker.define("❄️", "on_chain_id", Func::wrap(&mut *store, on_chain_id))?;
     linker.define("❄️", "example_host_function", Func::wrap(&mut *store, example_host_function))?;
-    linker.define("❄️", "example_async_host_function", Func::wrap(&mut *store, example_async_host_function))?;
+    // linker.define("❄️", "example_async_host_function", Func::wrap(&mut *store, example_async_host_function))?;
+    register!(ic_raw_rand, linker, store);
     Ok(())
 }
 
@@ -35,7 +50,7 @@ fn abort_host(message_ptr: i32, file_ptr: i32, line: i32, column: i32) {
     ic_cdk::trap("AssemblyScript abort");
 }
 
-fn seed(caller: Caller<ExecutionContext>) -> Result<f64, Error> {
+fn seed() -> Result<f64, Error> {
     // TODO: Require asynchronous initialization first. In fact, will need
     // to provide a separate API as we can't make seed() asynchronous.
     // caller.data().log(LogType::System, "Seeding randomness with VRF");
@@ -47,12 +62,6 @@ fn example_host_function(caller: Caller<ExecutionContext>) -> i64 {
     let context = caller.data();
     ic_cdk::println!("example_host_function invoked for job: {:?}", context.request.on_chain_id);
     ic_cdk::api::time() as i64
-}
-
-fn example_async_host_function(mut caller: Caller<ExecutionContext>, callback: i32) {
-    ic_cdk::println!("example_async_host_function invoked with callback index: {}", callback);
-    caller.data_mut().pending_callbacks.push_back(callback);
-    ic_cdk::println!("Pending callbacks queued: {}", caller.data().pending_callbacks.len());
 }
 
 // TODO: Support console.error etc.
@@ -75,7 +84,6 @@ fn evm_chain_id(caller: Caller<ExecutionContext>) -> u64 {
 /// Writes the calldata into the provided buffer, which is expected to be of CALLDATA_SIZE.
 fn calldata(mut caller: Caller<ExecutionContext>, buffer_ptr: i32) -> Result<(), Error> {
     let calldata = caller.data().request.data.clone();
-    ic_cdk::println!("calldata host function called, writing {} bytes to ptr {}", calldata.len(), buffer_ptr);
     get_memory(&caller).write(&mut caller, buffer_ptr as usize, &calldata)?;
     Ok(())  // TODO: remove?
 }
@@ -89,6 +97,18 @@ fn on_chain_id(caller: Caller<ExecutionContext>) -> i64 {
     } else {
         -1
     }
+}
+
+fn ic_raw_rand(mut caller: Caller<ExecutionContext>, promise_ref: i32) -> Result<(), Error> {
+    caller.data_mut().queue_task(
+        promise_ref,
+        "Retrieve verifiable randomness".to_string(),
+        Box::pin(async {
+            ic_cdk::management_canister::raw_rand().await
+                .map_err(|e| format!("Failed to get raw_rand: {}", e))
+        }) 
+    );
+    Ok(())
 }
 
 // Reads a UTF-16LE encoded string from the guest memory at the given pointer.

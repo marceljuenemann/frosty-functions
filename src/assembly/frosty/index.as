@@ -1,4 +1,3 @@
-import { __example_async_host_function } from "./internal";
 import { SharedPromise } from "frosty/internal/async";
 import { Promise } from "frosty/promise";
 
@@ -35,17 +34,3 @@ export const JOB_ID = __on_chain_id();
 
 @external("❄️", "on_chain_id")
 declare function __on_chain_id(): u64;
-
-/**
- * Returns the calldata that was passed with the function invocation.
- */
-
-export function example_async(): Promise<string> {
-  console.log("example_async called");
-  let promise = new SharedPromise();
-  __example_async_host_function(promise.ref);
-  return promise.map<string>((value: i32) => {
-    console.log(`example_async: Host function returned with value: ${value}`);
-    return value.toString();
-  });
-}

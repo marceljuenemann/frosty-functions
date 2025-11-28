@@ -23,19 +23,19 @@ const PROMISE_REGISTRY = new Registry<SharedPromise>();
  * A Promise that can be resolved by the host.
  */
 export class SharedPromise extends Promise<i32> {
-  public readonly ref: i32;
+  public readonly id: i32;
 
   constructor() {
     super();
-    this.ref = PROMISE_REGISTRY.register(this);
+    this.id = PROMISE_REGISTRY.register(this);
   }
 }
 
-export function resolveSharedPromise(reference: i32, value: i32): void {
-  PROMISE_REGISTRY.retrieve(reference).resolve(value);
+export function resolveSharedPromise(id: i32, value: i32): void {
+  PROMISE_REGISTRY.retrieve(id).resolve(value);
 }
 
-export function rejectSharedPromise(reference: i32, value: i32): void {
+export function rejectSharedPromise(id: i32, value: i32): void {
   // TODO: Load error message from shared buffer.
-  PROMISE_REGISTRY.retrieve(reference).reject(new Error(`Promise rejected with value: ${value}`));
+  PROMISE_REGISTRY.retrieve(id).reject(new Error(`Promise rejected with value: ${value}`));
 }

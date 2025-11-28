@@ -1,4 +1,5 @@
-use std::collections::VecDeque;
+use std::future::Future;
+use std::pin::Pin;
 
 use candid::CandidType;
 use wasmi::WasmParams;
@@ -25,6 +26,22 @@ pub enum LogType {
     Default,
 }
 
+/// Return type for async host functions.
+/// 
+/// Guests will have to interpret the byte array depending on the function
+/// that created the SharedPromise.
+/// TODO: Consider replacing String with (ErrorCode, String)?
+pub type AsyncResult = Result<Vec<u8>, String>;
+
+struct AsyncTask {
+    // ID created by the guest to identify the task.
+    pub id: i32,
+    // Description of the task for logging purposes.
+    pub description: String,
+    // Future that will produce the result.
+    pub future: Pin<Box<dyn Future<Output = AsyncResult>>>,
+} 
+
 /// Runtime context available to host functions during execution.
 pub struct ExecutionContext {
     pub request: JobRequest,
@@ -32,14 +49,26 @@ pub struct ExecutionContext {
     // Logs written during the current execution. Will be commited
     // to stable memory before yielding execution.
     pub logs: Vec<LogEntry>,
-    // Queue of function references to invoke in the WASM module.
-    pub pending_callbacks: VecDeque<i32>,
-    // Add other fields as needed (logs, async results, etc.)
+    pub async_tasks: Vec<AsyncTask>,
 }
 
 impl ExecutionContext {
     pub fn log(&mut self, level: LogType, message: String) {
         self.logs.push(LogEntry { level, message });
+    }
+
+    pub fn queue_task(
+        &mut self,
+        id: i32,
+        description: String,
+        future: Pin<Box<dyn Future<Output = AsyncResult>>>,
+    ) {
+        self.log(LogType::System, format!("Queued AsyncTask #{}: {}", id, description));
+        self.async_tasks.push(AsyncTask {
+            id,
+            description,
+            future,
+        });
     }
 }
 
@@ -78,10 +107,12 @@ pub async fn execute_job(chain: Chain, job_id: u64) -> Result<(), String> {
 
     // Process any pending callbacks registered by host functions
     // TODO: Support actual async operations. Commit gas and state as needed.
+    /*
     while let Some(callback_index) = execution.store.data_mut().pending_callbacks.pop_front() {
         ic_cdk::println!("Executing callback with index: {}", callback_index);
         execution.call_by_reference(callback_index)?;
     }
+    */
 
     Ok(())
 }
@@ -91,9 +122,11 @@ pub fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionResult,
     execution.call_by_name("main".to_string())?;
     let commit = execution.commit(CommitSource::Main)?;
 
-    if execution.store.data_mut().pending_callbacks.len() > 0 {
+    /*
+    if execution.store.data_mut().async_tasks.len() > 0 {
         return Err("Async callbacks not supported in simulation yet".to_string());
     }
+    */
 
     Ok(ExecutionResult {
         commits: vec![commit],
@@ -121,7 +154,7 @@ impl JobExecution {
             request: request.clone(),
             simulation: simulation,
             logs: Vec::new(),
-            pending_callbacks: VecDeque::new(),
+            async_tasks: Vec::new(),
         };
         let mut store = wasmi::Store::new(module.engine(), context);
         // TODO: Set instruction limit (fuel) based on available gas.
