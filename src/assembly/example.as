@@ -4,12 +4,16 @@ import { ArrayBufferPromise } from "frosty/promise";
 import { verifiableRandomness } from "frosty/random";
 import { toHexString } from "frosty/util";
 
-export  function main(): void {
+export function main(): void {
   console.log(`Invoked from ${evm.CALLING_CHAIN_NAME} (Chain ID: ${evm.CALLING_CHAIN_ID})`);
   console.log(`Job ID is: ${JOB_ID}`);
   console.log(`Calldata is: ${toHexString(CALLDATA)}`);
 
   //examples.randomness();
+
+  evm.callback(new ArrayBuffer(0), 1300).then((data: ArrayBuffer) => {
+    console.log(`EVM callback completed with data: ${toHexString(Uint8Array.wrap(data))}`);
+  });
 }
 
 

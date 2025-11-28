@@ -1,3 +1,6 @@
+import { Promise } from "./promise";
+import { SharedPromise } from "./internal/async";
+
 export enum EvmChain {
     EthereumMainnet = 1,
     EthereumSepolia = 11155111,
@@ -32,3 +35,28 @@ export function chainName(chainId: u64): string {
     default: return "EVM Chain ID " + chainId.toString();
   }
 }
+
+/**
+ * Submits a transaction to the EVM chain that invoked this Frosty Function.
+ * 
+ * The callback will be routed through the Frosty Function bridge contract
+ * and call into the contract that called `invokeFunction`, unless it was
+ * called by an external account.
+ * 
+ * Both the amount specified and the gas costs for the transaction will be
+ * deducted from the gas of the current Frosty Function execution.
+ * 
+ * @param data arbitrary calldata to include in the callback
+ * @param amount amount of native currency to include in the callback
+ */
+// TODO: Support amounts larger than 2^64 (which is around 18 ETH).
+export function callback(data: ArrayBuffer, amount: u64): Promise<ArrayBuffer> {
+  // TODO: Actually pass data and amount.
+  // TODO: Have a reasonable return value.
+  let promise = new SharedPromise();
+  __evm_callback(promise.id, changetype<i32>(data), amount);
+  return promise;
+}
+
+@external("❄️", "evm_callback")
+declare function __evm_callback(promiseId: i32, dataPtr: i32, amount: u64): void;

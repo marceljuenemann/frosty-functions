@@ -4,9 +4,9 @@
     <div class="card-header d-flex align-items-center justify-content-between py-2">
       <div class="fw-semibold">
         @if (commit.async_task.length) {
-          Logs for callback #{{ commit.async_task[0][0] }}: ({{ commit.async_task[0][1] }})
+          Callback #{{ commit.async_task[0][0] }}: ({{ commit.async_task[0][1] }})
         } @else {
-          Logs for main() invocation
+          main()
         }
       </div>
     </div>
