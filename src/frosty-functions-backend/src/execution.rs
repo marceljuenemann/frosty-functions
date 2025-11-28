@@ -49,7 +49,10 @@ pub struct ExecutionContext {
     // Logs written during the current execution. Will be commited
     // to stable memory before yielding execution.
     pub logs: Vec<LogEntry>,
+    // Pending async tasks.
     pub async_tasks: Vec<AsyncTask>,
+    // Shared buffer that the guest can read using copy_shared_buffer.
+    pub shared_buffer: Vec<u8>,
 }
 
 impl ExecutionContext {
@@ -167,6 +170,7 @@ impl JobExecution {
             simulation: simulation,
             logs: Vec::new(),
             async_tasks: Vec::new(),
+            shared_buffer: Vec::new(),
         };
         let mut store = wasmi::Store::new(module.engine(), context);
         // TODO: Set instruction limit (fuel) based on available gas.
@@ -239,6 +243,7 @@ impl JobExecution {
         match result {
             Ok(data) => {
                 ic_cdk::println!("Async task #{} completed successfully.", task_id);
+                self.store.data_mut().shared_buffer = data.clone();
                 self.call(self.fn_resolve, (task_id, data.len() as i32))?;
                 Ok(())
                 // TODO: commit

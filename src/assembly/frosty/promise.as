@@ -151,3 +151,46 @@ class MappingCallback<T, U> implements Callback<T> {
     }
   }
 }
+
+export class ArrayBufferPromise extends Promise<ArrayBuffer> {
+
+  asUint8Array(): Promise<Uint8Array> {
+    return this.map<Uint8Array>((buffer: ArrayBuffer) => Uint8Array.wrap(buffer));
+  }
+  
+  asUint16Array(): Promise<Uint16Array> {
+    return this.map<Uint16Array>((buffer: ArrayBuffer) => Uint16Array.wrap(buffer));
+  }
+  
+  asUint32Array(): Promise<Uint32Array> {
+    return this.map<Uint32Array>((buffer: ArrayBuffer) => Uint32Array.wrap(buffer));
+  }
+
+  asUint64Array(): Promise<Uint64Array> {
+    return this.map<Uint64Array>((buffer: ArrayBuffer) => Uint64Array.wrap(buffer));
+  }
+
+  asInt8Array(): Promise<Int8Array> {
+    return this.map<Int8Array>((buffer: ArrayBuffer) => Int8Array.wrap(buffer));
+  }
+  
+  asInt16Array(): Promise<Int16Array> {
+    return this.map<Int16Array>((buffer: ArrayBuffer) => Int16Array.wrap(buffer));
+  }
+  
+  asInt32Array(): Promise<Int32Array> {
+    return this.map<Int32Array>((buffer: ArrayBuffer) => Int32Array.wrap(buffer));
+  }
+
+  asInt64Array(): Promise<Int64Array> {
+    return this.map<Int64Array>((buffer: ArrayBuffer) => Int64Array.wrap(buffer));
+  }
+
+  asFloat32Array(): Promise<Float32Array> {
+    return this.map<Float32Array>((buffer: ArrayBuffer) => Float32Array.wrap(buffer));
+  }
+  
+  asFloat64Array(): Promise<Float64Array> {
+    return this.map<Float64Array>((buffer: ArrayBuffer) => Float64Array.wrap(buffer));
+  }  
+}

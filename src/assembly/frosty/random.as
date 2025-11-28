@@ -1,4 +1,4 @@
-import { Promise } from "./promise";
+import { ArrayBufferPromise, Promise } from "./promise";
 import { SharedPromise } from "./internal/async";
 
 /**
@@ -7,15 +7,10 @@ import { SharedPromise } from "./internal/async";
  * Refer to the Internet Computer documentation for details.
  * @see https://internetcomputer.org/docs/building-apps/network-features/randomness
  */
-// TODO: Convert to array
-export function verifiableRandomness(): Promise<ArrayBuffer> {
-  console.log("verifiableRandomness called");
+export function verifiableRandomness(): ArrayBufferPromise {
   let promise = new SharedPromise();
   ic_raw_rand(promise.id);
-  return promise.map<ArrayBuffer>((value: i32) => {
-    console.log(`Promise resolved with: ${value}`);
-    return new ArrayBuffer(32); // TODO: Replace with actual random bytes
-  });
+  return promise;
 }
 
 @external("❄️", "ic_raw_rand")

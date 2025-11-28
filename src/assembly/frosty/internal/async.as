@@ -1,5 +1,21 @@
-import { Promise } from "frosty/promise";
+import { Promise, ArrayBufferPromise } from "frosty/promise";
 
+/**
+ * A Promise that can be resolved by the host.
+ */
+export class SharedPromise extends ArrayBufferPromise {
+  public readonly id: i32;
+
+  constructor() {
+    super();
+    this.id = PROMISE_REGISTRY.register(this);
+  }
+}
+
+/**
+ * We keep promises in a registry so they won't be garbage collected
+ * and can be retrieved again when the callback is invoked from the host.
+ */
 class Registry<T> {
   private map: Map<i32, T> = new Map<i32, T>();
   private nextId: i32 = 0;
@@ -19,23 +35,16 @@ class Registry<T> {
 
 const PROMISE_REGISTRY = new Registry<SharedPromise>();
 
-/**
- * A Promise that can be resolved by the host.
- */
-export class SharedPromise extends Promise<i32> {
-  public readonly id: i32;
-
-  constructor() {
-    super();
-    this.id = PROMISE_REGISTRY.register(this);
-  }
+export function resolveSharedPromise(id: i32, dataSize: i32): void {
+  const buffer = new ArrayBuffer(dataSize);
+  copy_shared_buffer(changetype<i32>(buffer));
+  PROMISE_REGISTRY.retrieve(id).resolve(buffer);
 }
 
-export function resolveSharedPromise(id: i32, value: i32): void {
-  PROMISE_REGISTRY.retrieve(id).resolve(value);
-}
-
-export function rejectSharedPromise(id: i32, value: i32): void {
+export function rejectSharedPromise(id: i32, dataSize: i32): void {
   // TODO: Load error message from shared buffer.
-  PROMISE_REGISTRY.retrieve(id).reject(new Error(`Promise rejected with value: ${value}`));
+  PROMISE_REGISTRY.retrieve(id).reject(new Error(`Promise rejected with value: ${dataSize}`));
 }
+
+@external("❄️", "copy_shared_buffer")
+declare function copy_shared_buffer(destinationPtr: i32): void;

@@ -1,8 +1,7 @@
-use std::{cmp::min, future::Future, pin::Pin};
+use std::{cmp::min};
 
-use ic_cdk::api::call;
 use wasmi::{Caller, Error, Func, Global, Linker, Memory, Mutability, Store, Val, errors::LinkerError};
-use crate::{Chain, execution::{ExecutionContext, LogEntry, LogType}};
+use crate::{Chain, execution::{ExecutionContext, LogType}};
 
 const CONSOLE_LOG_MAX_LEN: usize = 10_000;
 
@@ -36,6 +35,7 @@ pub fn register_host_functions(linker: &mut Linker<ExecutionContext>, store: &mu
     linker.define("env", "seed", Func::wrap(&mut *store, seed))?;
 
     register!(calldata, linker, store);
+    register!(copy_shared_buffer, linker, store);
     register!(on_chain_id, linker, store);
 
     register!(evm_chain_id, linker, store);
@@ -112,6 +112,14 @@ fn read_utf16_string(caller: &wasmi::Caller<ExecutionContext>, str_ptr: i32, max
     }
     String::from_utf16(&u16s)
         .map_err(|e| Error::new(format!("Invalid UTF-16 string: {}", e)))
+}
+
+/// Copies the shared buffer into the guest memory at the given pointer.
+/// The guest is expected to have allocated a buffer of the same size.
+fn copy_shared_buffer(mut caller: Caller<ExecutionContext>, buffer_ptr: i32) -> Result<(), Error> {
+    let shared_buffer = caller.data().shared_buffer.clone();
+    get_memory(&caller).write(&mut caller, buffer_ptr as usize, &shared_buffer)?;
+    Ok(())
 }
 
 /// Reads a buffer from the guest memory at the given pointer.
