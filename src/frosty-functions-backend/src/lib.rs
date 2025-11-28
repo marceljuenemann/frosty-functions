@@ -34,7 +34,14 @@ fn get_job_info(chain: Chain, job_id: u64) -> Result<Job, String> {
 
 #[ic_cdk::query]
 fn simulate_execution(request: JobRequest, wasm: Vec<u8>) -> Result<ExecutionResult, String> {
-    crate::execution::simulate_job(request, &wasm)
+    // crate::execution::simulate_job(request, &wasm)
+    Err("simulate_execution is disabled temporarily".to_string())
+}
+
+// TDOO: Delete once execute_job is properly implemented.
+#[ic_cdk::update]
+async fn temp_simulate_execution(request: JobRequest, wasm: Vec<u8>) -> Result<ExecutionResult, String> {
+    crate::execution::simulate_job(request, &wasm).await
 }
 
 #[ic_cdk::update]

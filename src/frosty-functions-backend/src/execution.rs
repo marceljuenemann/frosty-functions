@@ -117,7 +117,8 @@ pub async fn execute_job(chain: Chain, job_id: u64) -> Result<(), String> {
     Ok(())
 }
 
-pub fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionResult, String> {
+// TODO: Remove async
+pub async fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionResult, String> {
     let mut execution = JobExecution::init(request.clone(), wasm, true)?;
     execution.call_by_name("main".to_string())?;
     let commit = execution.commit(CommitSource::Main)?;

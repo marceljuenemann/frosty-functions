@@ -31,16 +31,14 @@ macro_rules! register {
 
 /// Registers all host functions into the given linker.
 pub fn register_host_functions(linker: &mut Linker<ExecutionContext>, store: &mut Store<ExecutionContext>) -> Result<(), LinkerError> {
-    // TODO: Define a macro to reduce boilerplate.
     linker.define("env", "abort", Func::wrap(&mut *store, abort_host))?;
     linker.define("env", "console.log", Func::wrap(&mut *store, console_log))?;
     linker.define("env", "seed", Func::wrap(&mut *store, seed))?;
-    linker.define("❄️", "calldata", Func::wrap(&mut *store, calldata))?;
-    linker.define("❄️", "evm_chain_id", Func::wrap(&mut *store, evm_chain_id))?;
-    //linker.define("❄️", "ic_raw_rand", Func::wrap(&mut *store, ic_raw_rand))?;
-    linker.define("❄️", "on_chain_id", Func::wrap(&mut *store, on_chain_id))?;
-    linker.define("❄️", "example_host_function", Func::wrap(&mut *store, example_host_function))?;
-    // linker.define("❄️", "example_async_host_function", Func::wrap(&mut *store, example_async_host_function))?;
+
+    register!(calldata, linker, store);
+    register!(on_chain_id, linker, store);
+
+    register!(evm_chain_id, linker, store);
     register!(ic_raw_rand, linker, store);
     Ok(())
 }
@@ -58,19 +56,12 @@ fn seed() -> Result<f64, Error> {
     Err(Error::new("Verifiable Random Function not yet implemented"))
 }
 
-fn example_host_function(caller: Caller<ExecutionContext>) -> i64 {
-    let context = caller.data();
-    ic_cdk::println!("example_host_function invoked for job: {:?}", context.request.on_chain_id);
-    ic_cdk::api::time() as i64
-}
-
 // TODO: Support console.error etc.
 fn console_log(mut caller: Caller<ExecutionContext>, message_ptr: i32) {
     let message = read_utf16_string(&caller, message_ptr, CONSOLE_LOG_MAX_LEN)
         // TODO: Return error?
         .unwrap_or_else(|e| format!("(failed to read log message: {})", e));
     caller.data_mut().log(LogType::Default, message.clone());
-    ic_cdk::println!("console.log: {}", message);  // TODO: remove
     // TODO: Charge cycles for logs storage.
 }
 

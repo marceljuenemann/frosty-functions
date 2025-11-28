@@ -35,6 +35,7 @@ export class FrostyFunctionService {
       host: 'http://localhost:4943',
       verifyQuerySignatures: false  // TODO: Remove in production
     });
+    await agent.fetchRootKey();  // TODO: Remove in production
     // Production
     /*
     agent = await HttpAgent.create({
@@ -112,7 +113,8 @@ export class FrostyFunctionService {
     };
 
     const actor = await this.actor();
-    const response = await actor.simulate_execution(request, wasm);
+    // TODO: Remove temp_ again
+    const response = await actor.temp_simulate_execution(request, wasm);
     const result = await response.result;
     if ('Err' in result) {
       throw new Error(`${result.Err}`);

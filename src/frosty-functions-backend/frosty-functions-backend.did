@@ -36,4 +36,5 @@ service : () -> {
   // Fetches new jobs from the specified chain.
   // Returns Ok(true) if new jobs were synced.
   sync_chain : (Chain) -> (Result_4);
+  temp_simulate_execution : (JobRequest, blob) -> (Result_3);
 }
