@@ -12,7 +12,7 @@ export class LogViewer {
 
   commits = input<Array<Commit>>([]);
 
-  timestampToDate(timestamp: bigint): Date {
-    return new Date(Number(timestamp) / 1_000_000);
+  timestampToDate(timestamp: bigint): string {
+    return new Date(Number(timestamp) / 1_000_000).toISOString().replace('T', ' ').replace('Z', '');
   }
 }

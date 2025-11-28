@@ -1,15 +1,19 @@
 @for (commit of this.commits(); track commit; let commitIdx = $index) {
   <!-- TODO: Maybe use an accordion here -->
-  <div class="card shadow-sm">
+  <div class="card shadow-sm mb-3">
     <div class="card-header d-flex align-items-center justify-content-between py-2">
       <div class="fw-semibold">
-        Logs for main() invocation
+        @if (commit.async_task.length) {
+          Logs for callback #{{ commit.async_task[0][0] }}: ({{ commit.async_task[0][1] }})
+        } @else {
+          Logs for main() invocation
+        }
       </div>
     </div>
     <div class="card-body p-0">
       <div class="log-container">
         <div class="log-timestamp fst-italic mb-2">
-          Transaction time: {{ timestampToDate(commit.timestamp).toLocaleString() }},
+          Transaction time: {{ timestampToDate(commit.timestamp) }},
           {{ commit.logs.length }} log entries
         </div>
 

@@ -7,6 +7,8 @@ import util from './frosty/util.as'
 
 import internal_async from './frosty/internal/async.as'
 
+import runtime from './runtime.as'
+
 /**
  * Source code of all modules.
  */
@@ -19,3 +21,5 @@ export const FROSTY_SOURCES = new Map<string, string>([
   ['frosty/util', util],
   ['frosty/internal/async', internal_async],
 ]);
+
+export const RUNTIME_SOURCE = runtime

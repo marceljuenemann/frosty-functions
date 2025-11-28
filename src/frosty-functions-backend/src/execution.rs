@@ -77,13 +77,8 @@ impl ExecutionContext {
 #[derive(Clone, Debug, CandidType)]
 pub struct Commit {
     pub timestamp: u64,
-    pub source: CommitSource,
+    pub async_task: Option<(i32, String)>,  // Unset for initial main() commit.
     pub logs: Vec<LogEntry>,
-}
-
-#[derive(Clone, Debug, CandidType)]
-pub enum CommitSource {
-    Main,  // Initial execution of main()
 }
 
 #[derive(Clone, Debug, CandidType)]
@@ -120,8 +115,11 @@ pub async fn execute_job(chain: Chain, job_id: u64) -> Result<(), String> {
 // TODO: Remove async
 pub async fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionResult, String> {
     let mut execution = JobExecution::init(request.clone(), wasm, true)?;
+    // TODO: Commit after errors.
     execution.call_by_name("main".to_string())?;
-    let commit = execution.commit(CommitSource::Main)?;
+
+    // TODO: Start all async tasks before commiting.
+    let mut commits = vec![execution.commit(None)?];
 
     /*
     if execution.store.data_mut().async_tasks.len() > 0 {
@@ -129,9 +127,19 @@ pub async fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionR
     }
     */
 
-    Ok(ExecutionResult {
-        commits: vec![commit],
-    })
+    while !execution.store.data().async_tasks.is_empty() {
+        ic_cdk::println!("Processing {} async tasks...", execution.store.data().async_tasks.len());
+
+        // TODO: Wait for multiple tasks in parallel.
+        let task = execution.store.data_mut().async_tasks.pop().unwrap();
+        let result = task.future.await;
+        execution.callback(task.id, &result)?;
+        // TODO: Start more tasks.
+        // TODO: Set source
+        commits.push(execution.commit(Some((task.id, task.description)))?);
+    }
+
+    Ok(ExecutionResult { commits })
 }
 
 /// Runtime state for a job execution.
@@ -139,6 +147,9 @@ pub async fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionR
 struct JobExecution {
     pub store: wasmi::Store<ExecutionContext>,
     pub instance: wasmi::Instance,
+    pub fn_main: TypedFunc<(), ()>,
+    pub fn_resolve: TypedFunc<(i32, i32), ()>,
+    pub fn_reject: TypedFunc<(i32, i32), ()>,
     // TODO: Keep a queue of callbacks to invoke and futures to poll.
 }
 
@@ -180,6 +191,9 @@ impl JobExecution {
             // TODO: Consider using --exportStart with asc to have a fully initialized module.
     
         Ok(Self {
+            fn_main: instance.get_typed_func::<(), ()>(&store, "main").map_err(|e| format!("main() function missing: {}", e))?,
+            fn_resolve: instance.get_typed_func::<(i32, i32), ()>(&store, "__frosty_resolve").map_err(|e| format!("__frosty_resolve() function missing: {}", e))?,
+            fn_reject: instance.get_typed_func::<(i32, i32), ()>(&store, "__frosty_reject").map_err(|e| format!("__frosty_reject() function missing: {}", e))?,
             store,
             instance,
         })
@@ -192,23 +206,11 @@ impl JobExecution {
         // We interrupt and resume execution based on fuel consumption.
         let func = self.instance.get_typed_func::<(), ()>(&self.store, &function_name)
             .map_err(|e| format!("Failed to get function {:?}: {}", function_name, e))?;
-        self.call_func(func, ())
-    }
-
-    /// Calls a WASM function by table index (function reference).
-    /// This is used for callbacks passed from WASM to host functions.
-    fn call_by_reference(&mut self, func_index: i32) -> Result<(), String> {
-        ic_cdk::println!("Executing WASM callback {:?}...", func_index);
-
-        // We interrupt and resume execution based on fuel consumption.
-        // TODO: Allow rejection
-        let func = self.instance.get_typed_func::<(i32, i32), ()>(&self.store, "__frosty_resolve")
-            .map_err(|e| format!("Failed to get function {:?}: {}", "__frosty_resolve", e))?;
-        self.call_func(func, (func_index, 0))
+        self.call(func, ())
     }
 
     /// Calls a function of the WASM module, handling fuel consumption and errors.
-    fn call_func<Params: WasmParams>(&mut self, function: TypedFunc<Params, ()>, params: Params) -> Result<(), String> {
+    fn call<Params: WasmParams>(&mut self, function: TypedFunc<Params, ()>, params: Params) -> Result<(), String> {
         loop {
             match function.call(&mut self.store, params) {
                 Ok(()) => {
@@ -232,14 +234,31 @@ impl JobExecution {
         }
     }
 
+    /// Executes the callback for the given async task.
+    fn callback(&mut self, task_id: i32, result: &AsyncResult) -> Result<(), String> {
+        match result {
+            Ok(data) => {
+                ic_cdk::println!("Async task #{} completed successfully.", task_id);
+                self.call(self.fn_resolve, (task_id, data.len() as i32))?;
+                Ok(())
+                // TODO: commit
+            }
+            Err(e) => {
+                // TODO: Handle properly
+                ic_cdk::println!("Async task #{} failed.", task_id);
+                return Err(format!("Async task #{} failed: {}", task_id, e));
+            }
+        }
+    }
+
     /// Commits the current execution state, returning a Commit object.
     /// State should be commited before yielding execution for async operations.
-    fn commit(&mut self, source: CommitSource) -> Result<Commit, String> {
+    fn commit(&mut self, async_task: Option<(i32, String)>) -> Result<Commit, String> {
         let logs = self.store.data().logs.clone();
         self.store.data_mut().logs.clear();  // TODO: Store in stable memory
         Ok(Commit {
             timestamp: ic_cdk::api::time(),
-            source,
+            async_task,
             logs,
         })
     }

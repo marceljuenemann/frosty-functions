@@ -1,11 +1,10 @@
 type Address = variant { EvmAddress : text };
 type Chain = variant { Evm : EvmChain };
 type Commit = record {
-  source : CommitSource;
+  async_task : opt record { int32; text };
   logs : vec LogEntry;
   timestamp : nat64;
 };
-type CommitSource = variant { Main };
 type EvmChain = variant { ArbitrumSepolia; ArbitrumOne; Localhost };
 type ExecutionResult = record { commits : vec Commit };
 type Job = record { request : JobRequest };

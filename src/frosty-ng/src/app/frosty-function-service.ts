@@ -1,9 +1,9 @@
 import { Injectable } from '@angular/core';
-import { createActor, frosty_functions_backend, idlFactory } from 'declarations/frosty-functions-backend';
+import { idlFactory } from 'declarations/frosty-functions-backend';
 import asc from "assemblyscript/asc";
 import { _SERVICE, ExecutionResult, JobRequest, Result_3 } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
 import { Actor, ActorMethodMappedExtended, ActorSubclass, HttpAgent } from '@icp-sdk/core/agent';
-import { FROSTY_SOURCES } from '../../../assembly/sources';
+import { FROSTY_SOURCES, RUNTIME_SOURCE } from '../../../assembly/sources';
 
 export type CompilationResult = {
   success: true
@@ -61,6 +61,8 @@ export class FrostyFunctionService {
       readFile: (name, basedir) => {
         if (name === 'function.ts') {
           return code
+        } else if (name === 'runtime.ts') {
+          return RUNTIME_SOURCE
         } else if (name.startsWith('node_modules/frosty/')) {
           // Note: name might be 'node_modules/frosty/node_modules/frosty/index.ts'
           const moduleName = 'frosty/' + name.replaceAll('node_modules/frosty/', '').replace('.ts', '')
@@ -75,6 +77,7 @@ export class FrostyFunctionService {
       listFiles: () => []
     }
     const options = [
+        'runtime.ts',
         'function.ts',
         '--textFile', 'function.wat',
         '--outFile',  'function.wasm',
