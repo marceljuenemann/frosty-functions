@@ -7,11 +7,17 @@ export enum EvmChain {
 }
 
 /**
- * If the function was invoked from an EVM-compatible chain, returns the
- * EIP-155 chain ID. Returns zero for non-EVM chains.
+ * The EIP-155 chain ID of the chain that invoked this Frosty Function,
+ * or zero if invoked from a non-EVM chain.
  */
+@lazy
+export const CALLING_CHAIN_ID: u64 = callingChainId();
+
+@lazy
+export const CALLING_CHAIN_NAME: string = chainName(CALLING_CHAIN_ID);
+
 @external("❄️", "evm_chain_id")
-export declare function chainId(): u64;
+declare function callingChainId(): u64;
 
 /**
  * Returns a user-friendly name for the given EVM chain ID.

@@ -5,6 +5,7 @@ import { Promise } from "frosty/promise";
 /**
  * The data payload passed when the Frosty Function was invoked.
  */
+@lazy
 export const CALLDATA = ((): Uint8Array => {
   // Note that the compiler won't strip this out, even if CALLDATA
   // is never used. So we should prefer functions over constants for
@@ -29,6 +30,7 @@ declare function __calldata(buffer_ptr: i32): void;
  * in case blocks get re-orged. This function might return -1 in the future
  * when invoked off-chain.
  */
+@lazy
 export const JOB_ID = __on_chain_id();
 
 @external("❄️", "on_chain_id")
