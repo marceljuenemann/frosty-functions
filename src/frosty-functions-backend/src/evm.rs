@@ -1,3 +1,4 @@
+use alloy_primitives::U256;
 use alloy_rpc_types::TransactionRequest;
 use alloy_sol_types::Error;
 use alloy_sol_types::abi::token::WordToken;
@@ -26,19 +27,36 @@ sol! {
     event FunctionInvoked(address indexed caller, bytes32 indexed functionId, bytes data, uint256 gasPayment, uint256 jobId);
 }
 
+use alloy_rlp::Encodable;
+
 pub async fn transfer_funds( 
     evm_chain: EvmChain,
     to_address: String,
     amount: u64,
 ) -> Result<(), String> {
-    let client = create_client(evm_chain);
+    let client = create_client(evm_chain.clone());
 
-    let transaction = TransactionRequest::default();
+    let mut transaction = TransactionRequest::default()
+        .from("0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9".parse().unwrap())
+        .to(to_address.parse().map_err(|e| format!("Invalid to address: {}", e))?)
+        .value(U256::from(amount))
+        // TODO: Determine these automatically.
+        .max_priority_fee_per_gas(42u128)
+        .max_fee_per_gas(54u128)
+        .gas_limit(21000u64)
+        // TODO: Set input
+        .nonce(0);  // TODO: Use transaction count for this job (assuming job_id field is part of bridge call)
+    transaction.chain_id = Some(evm_chain_id(evm_chain));
     ic_cdk::println!("TransactionRequest: {:?}", transaction);
 
     let tx = transaction.build_1559()
         .map_err(|e| format!("Failed to build transaction: {:?}", e))?;
     ic_cdk::println!("Unsinged tx: {:?}", tx);
+
+    let mut buf = vec![];
+    tx.encode(&mut buf);
+    ic_cdk::println!("Unsinged tx: {:?}", buf);
+
 
 
 
