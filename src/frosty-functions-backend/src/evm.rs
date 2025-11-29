@@ -1,10 +1,10 @@
+use alloy_rpc_types::TransactionRequest;
 use alloy_sol_types::Error;
 use alloy_sol_types::abi::token::WordToken;
 use evm_rpc_client::AlloyResponseConverter;
 use evm_rpc_client::EvmRpcClient;
 use evm_rpc_client::NoRetry;
 use evm_rpc_types::ConsensusStrategy;
-use evm_rpc_types::TransactionRequest;
 use evm_rpc_types::{LogEntry};
 use evm_rpc_types::Nat256;
 use evm_rpc_types::{BlockTag, Hex20, RpcServices};
@@ -33,14 +33,22 @@ pub async fn transfer_funds(
 ) -> Result<(), String> {
     let client = create_client(evm_chain);
 
-    let transaction = TransactionRequest {
-        from: None,
-        to: Some(to_address.parse().map_err(|e| format!("Invalid address: {}", e))?),
-        value: Some(Nat256::from(amount)),
-        ..Default::default()
-    };
-    
+    let transaction = TransactionRequest::default();
     ic_cdk::println!("TransactionRequest: {:?}", transaction);
+
+    let tx = transaction.build_1559()
+        .map_err(|e| format!("Failed to build transaction: {:?}", e))?;
+    ic_cdk::println!("Unsinged tx: {:?}", tx);
+
+
+
+    // Continue here: https://internetcomputer.org/docs/building-apps/chain-fusion/ethereum/using-eth/eth-dev-workflow
+    // - Raw transaction bytes: https://alloy.rs/examples/transactions/encode_decode_eip1559
+    // - Get a key. Probably use ic_evm_util
+    // - Sign. See https://alloy.rs/examples/transactions/encode_decode_eip1559
+    
+
+
 
    //  client.send_raw_transaction(transaction.into());
 
