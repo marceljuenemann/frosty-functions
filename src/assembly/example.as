@@ -1,19 +1,62 @@
 import { CALLDATA, JOB_ID } from "frosty";
-import * as evm from "frosty/evm";
+import { CALLING_CHAIN_NAME, CALLING_CHAIN_ID, Wallet } from "frosty/evm";
 import { ArrayBufferPromise } from "frosty/promise";
 import { verifiableRandomness } from "frosty/random";
 import { toHexString } from "frosty/util";
 
 export function main(): void {
-  console.log(`Invoked from ${evm.CALLING_CHAIN_NAME} (Chain ID: ${evm.CALLING_CHAIN_ID})`);
-  console.log(`Job ID is: ${JOB_ID}`);
+  console.log(`Invoked from ${CALLING_CHAIN_NAME} (Chain ID: ${CALLING_CHAIN_ID})`);
   console.log(`Calldata is: ${toHexString(CALLDATA)}`);
+  console.log(`Job ID is: ${JOB_ID}`);
+
+  // Frosty automatically creates an Ethereum Wallet for the caller that invoked the
+  // function. The private key is split across the nodes of the Internet Computer and
+  // signs messages using Threshold ECDSA. Note that any Frosty Function can manage the
+  // the `forCaller()` wallet as long as that caller invokes the function.
+  const wallet = Wallet.forCaller();
+//  console.log(`Caller address: ${CALLER_ADDRESS}`);
+  console.log(`Caller Frosty Wallet address: ${wallet.address}`);
+
+
+
 
   //examples.randomness();
 
+  /*
   evm.callback(new ArrayBuffer(0), 1300).then((data: ArrayBuffer) => {
     console.log(`EVM callback completed with data: ${toHexString(Uint8Array.wrap(data))}`);
   });
+  */
+
+
+
+  /**
+
+  const wallet = Wallet.forCaller();  // Synchronous, fetch before execution (only once).
+  console.log(`Caller address: ${CALLER_ADDRESS}`);
+  console.log(`Caller Frosty Wallet address: ${wallet.address()}`);
+
+  wallet.signMessage("Hello, World!").then((signature) => {
+    console.log(`Signed message: ${toHexString(signature)}`);
+  });
+
+  // TODO: Check for minimum amount
+  // TODO: Generate a random number
+  // TODO: Convert the random amount to WETH
+
+  // Deposits are deducted from the gas of the current call. Make sure to
+  // leave enough gas for the function execution to complete! (More helper
+  // methods to manage gas will be added in the future.)
+  wallet.depositGwei(10000).then((wallet) => {
+
+
+  
+  
+  })
+
+  */
+
+
 }
 
 

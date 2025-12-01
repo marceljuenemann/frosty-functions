@@ -3,6 +3,7 @@ mod chain;
 mod evm;
 mod execution;
 mod job;
+mod signer;
 mod state;
 
 use candid::Nat;

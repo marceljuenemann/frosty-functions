@@ -37,6 +37,25 @@ export function chainName(chainId: u64): string {
 }
 
 /**
+ * An Ethereum Wallet that support signing arbitrary messages.
+ * 
+ * Currently this class only implements the `forCaller()` method to
+ * retrieve the wallet for the caller that invoked the current Frosty Function.
+ */
+export class Wallet {
+  private constructor(
+    readonly address: string
+  ) {}
+
+  static forCaller(): Wallet {
+    return new Wallet("test")
+  }
+}
+
+@external("❄️", "evm_caller_wallet_address")
+declare function callerWalletAddress(bufferPtr: i32): void;
+
+/**
  * Submits a transaction to the EVM chain that invoked this Frosty Function.
  * 
  * The callback will be routed through the Frosty Function bridge contract
@@ -50,6 +69,10 @@ export function chainName(chainId: u64): string {
  * @param amount amount of native currency to include in the callback
  */
 // TODO: Support amounts larger than 2^64 (which is around 18 ETH).
+// TODO: Decide whether to still build a callback or only support the
+// wallet method? Potential issue is that it requires an additional transaction,
+// although not if the caller takes care of funding it properly beforehand.
+/*
 export function callback(data: ArrayBuffer, amount: u64): Promise<ArrayBuffer> {
   // TODO: Actually pass data and amount.
   // TODO: Have a reasonable return value.
@@ -60,3 +83,4 @@ export function callback(data: ArrayBuffer, amount: u64): Promise<ArrayBuffer> {
 
 @external("❄️", "evm_callback")
 declare function __evm_callback(promiseId: i32, dataPtr: i32, amount: u64): void;
+*/

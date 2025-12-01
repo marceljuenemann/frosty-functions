@@ -1,11 +1,13 @@
 use std::future::Future;
 use std::pin::Pin;
 
+use alloy::signers::icp::IcpSigner;
 use candid::{CandidType, Nat};
 use evm_rpc_types::Nat256;
 use wasmi::WasmParams;
 use wasmi::{Engine, Module, TypedFunc, core::TrapCode};
 
+use crate::signer::signer_for_address;
 use crate::{job::JobRequest, state::read_chain_state};
 use crate::api::{register_constants, register_host_functions};
 use crate::chain::Chain;
@@ -46,6 +48,7 @@ struct AsyncTask {
 /// Runtime context available to host functions during execution.
 pub struct ExecutionContext {
     pub request: JobRequest,
+    pub signer: IcpSigner,
     pub simulation: bool,
     // Logs written during the current execution. Will be commited
     // to stable memory before yielding execution.
@@ -92,6 +95,10 @@ pub struct ExecutionResult {
 }
 
 pub async fn execute_job(chain: Chain, job_id: Nat256) -> Result<(), String> {
+
+    Err("execute_job currently deactivated".to_string())
+
+    /*
     let request = read_chain_state(&chain, |state| {
         state.jobs.get(job_id.as_ref())
             .ok_or_else(|| format!("Job not found: {}", job_id))
@@ -114,11 +121,14 @@ pub async fn execute_job(chain: Chain, job_id: Nat256) -> Result<(), String> {
     */
 
     Ok(())
+    */
 }
 
 // TODO: Remove async
 pub async fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionResult, String> {
-    let mut execution = JobExecution::init(request.clone(), wasm, true)?;
+    let signer = signer_for_address(&request.chain, &request.caller).await?;
+
+    let mut execution = JobExecution::init(request.clone(), wasm, true, signer)?;
     // TODO: Commit after errors.
     execution.call_by_name("main".to_string())?;
 
@@ -159,15 +169,19 @@ struct JobExecution {
 
 impl JobExecution {
     /// Creates a wasmi Engine and initializes the module. 
-    pub fn init(request: JobRequest, wasm: &[u8], simulation: bool) -> Result<Self, String> {
+    pub fn init(request: JobRequest, wasm: &[u8], simulation: bool, signer: IcpSigner) -> Result<Self, String> {
         let mut config = wasmi::Config::default();
         config.consume_fuel(true);
         let engine = Engine::new(&config);
         let module = Module::new(&engine, &wasm[..]).map_err(|e| format!("Failed to load WASM module: {}", e))?;
         
+
+        ic_cdk::println!("Signer public key: {:?}", signer.public_key());
+        
         // Create store with execution context
         let context = ExecutionContext {
             request: request.clone(),
+            signer,
             simulation: simulation,
             logs: Vec::new(),
             async_tasks: Vec::new(),

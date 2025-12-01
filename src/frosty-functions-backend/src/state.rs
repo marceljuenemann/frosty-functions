@@ -1,15 +1,19 @@
 use std::{cell::RefCell, collections::HashMap};
 
-use crate::chain::{Chain, ChainState};
+use alloy::signers::icp::IcpSigner;
+
+use crate::{chain::{Chain, ChainState}, signer::IcpSignerId};
 
 thread_local! {
     static STATE: RefCell<State> = RefCell::new(State {
         chains: HashMap::new(),
+        evm_signers: HashMap::new(),
     });
 }
 
 pub struct State {
     pub chains: HashMap<Chain, ChainState>,
+    pub evm_signers: HashMap<IcpSignerId, IcpSigner>
 }
 
 pub fn read_state<R>(f: impl FnOnce(&State) -> R) -> R {

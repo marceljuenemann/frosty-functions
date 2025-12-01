@@ -11,11 +11,30 @@ pub enum Chain {
     Evm(EvmChain)
 }
 
+impl Chain {
+    pub fn is_testnet(&self) -> bool {
+        match self {
+            Chain::Evm(evm_chain) => evm_chain.is_testnet(),
+        }
+    }
+}
+
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, candid::CandidType    )]
 pub enum EvmChain {
     ArbitrumOne,
     ArbitrumSepolia,
     Localhost
+}
+
+impl EvmChain {
+    pub fn is_testnet(&self) -> bool {
+        match self {
+            EvmChain::ArbitrumSepolia => true,
+            EvmChain::ArbitrumOne => false,
+            EvmChain::Localhost => true,
+        }
+    }
 }
 
 /// Stores all state related to a specific blockchain.

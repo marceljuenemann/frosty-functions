@@ -1,5 +1,3 @@
-use alloy::signers::icp::{IcpSigner, IcpSignerError};
-use alloy::signers::{Signature, Signer};
 use alloy::sol;
 
 use crate::chain::EvmChain;
@@ -15,6 +13,9 @@ sol! {
     #[sol(rpc)]
     "../../contracts/Bridge.sol"
 }
+
+
+    
 
 // // TODO: Move to some init call.
 // async fn public_key(chain: EvmChain) -> Result<Vec<u8>, String> {
@@ -65,28 +66,20 @@ sol! {
 // //    Ok(Address::from_public_key(&pubkey))
 // }
 
-async fn get_signer(chain: EvmChain) -> Result<IcpSigner, String> {
-    IcpSigner::new(vec![], &public_key_id(chain), None)
-        .await
-        .map_err(|err| format!("Failed to create ICP signer: {}", err))
-}
-
 pub async fn transfer_funds( 
     evm_chain: EvmChain,
     to_address: String,
     amount: u64,
 ) -> Result<(), String> {
 
-    // TODO: Store in shared state.
-    let signer = get_signer(evm_chain.clone()).await?;
-
-
+    /*
+    
     let message = "Hello EVM!".to_string();
     let signature = signer.sign_message(message.as_bytes()).await
         .map_err(|e| format!("Failed to sign message: {}", e))?;
     ic_cdk::println!("Signature for message '{}': {:?}", message, signature);
     ic_cdk::println!("Address {}", signer.address());
-
+*/  
 
 
 //     let client = create_client(evm_chain.clone());
@@ -267,23 +260,5 @@ pub fn evm_chain_id(chain: EvmChain) -> u64 {
         EvmChain::ArbitrumOne => 42161,
         EvmChain::ArbitrumSepolia => 421614,
         EvmChain::Localhost => 31337,
-    }
-}
-
-fn public_key_id(chain: EvmChain) -> String {
-    /*
-        let dfx_network = option_env!("DFX_NETWORK").unwrap();
-    match dfx_network {
-        "local" => "dfx_test_key".to_string(),
-        "ic" => "key_1".to_string(),
-        _ => panic!("Unsupported network."),
-    }
-     */
-    // Only three keys are available on ICP, see
-    // https://internetcomputer.org/docs/building-apps/network-features/signatures/t-ecdsa#signing-messages
-    match chain {
-        EvmChain::ArbitrumOne => "key_1".to_string(),
-        EvmChain::ArbitrumSepolia => "test_key_1".to_string(),
-        EvmChain::Localhost => "dfx_test_key".to_string(),
     }
 }
