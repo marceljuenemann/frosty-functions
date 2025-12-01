@@ -1,5 +1,5 @@
-use alloy::signers::icp::IcpSigner;
-use alloy::signers::Signer;
+use alloy::signers::icp::{IcpSigner, IcpSignerError};
+use alloy::signers::{Signature, Signer};
 use alloy::sol;
 
 use crate::chain::EvmChain;
@@ -65,10 +65,10 @@ sol! {
 // //    Ok(Address::from_public_key(&pubkey))
 // }
 
-async fn sign_message(chain: EvmChain, message: &[u8]) -> Result<String, String> {
-    let signer = IcpSigner::new(vec![], &public_key_id(chain), None).await.unwrap();
-    let signature = signer.sign_message(message).await.unwrap();
-    Ok(format!("{:?}", signature))
+async fn get_signer(chain: EvmChain) -> Result<IcpSigner, String> {
+    IcpSigner::new(vec![], &public_key_id(chain), None)
+        .await
+        .map_err(|err| format!("Failed to create ICP signer: {}", err))
 }
 
 pub async fn transfer_funds( 
@@ -77,11 +77,17 @@ pub async fn transfer_funds(
     amount: u64,
 ) -> Result<(), String> {
 
-    let message = "Hello EVM!".to_string();
-    let signature = sign_message(evm_chain.clone(), message.as_bytes()).await?;
-    ic_cdk::println!("Signature for message '{}': {}", message, signature);
+    // TODO: Store in shared state.
+    let signer = get_signer(evm_chain.clone()).await?;
 
-    
+
+    let message = "Hello EVM!".to_string();
+    let signature = signer.sign_message(message.as_bytes()).await
+        .map_err(|e| format!("Failed to sign message: {}", e))?;
+    ic_cdk::println!("Signature for message '{}': {:?}", message, signature);
+    ic_cdk::println!("Address {}", signer.address());
+
+
 
 //     let client = create_client(evm_chain.clone());
 
