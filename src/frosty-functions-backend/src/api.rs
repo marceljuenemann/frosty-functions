@@ -1,6 +1,7 @@
 use std::{cmp::min};
 
 use alloy::primitives::Address;
+use alloy::signers::Signer;
 use wasmi::{Caller, Error, Func, Global, Linker, Memory, Mutability, Store, Val, errors::LinkerError};
 use crate::{Chain, chain::EvmChain, evm::transfer_funds, execution::{ExecutionContext, LogType}};
 
@@ -39,8 +40,9 @@ pub fn register_host_functions(linker: &mut Linker<ExecutionContext>, store: &mu
     register!(copy_shared_buffer, linker, store);
     register!(on_chain_id, linker, store);
 
-    register!(evm_chain_id, linker, store);
     register!(evm_callback, linker, store);
+    register!(evm_caller_wallet_address, linker, store);
+    register!(evm_chain_id, linker, store);
 
     register!(ic_raw_rand, linker, store);
 
@@ -85,6 +87,14 @@ fn on_chain_id(caller: Caller<ExecutionContext>) -> i64 {
     } else {
         -1
     }
+}
+
+/// Writes the caller's wallet address as a UTF-16LE string into the provided buffer.
+/// The buffer is expected to be large enough to hold the address string.
+fn evm_caller_wallet_address(mut caller: Caller<ExecutionContext>, buffer_ptr: i32) -> Result<(), Error> {
+    let address = caller.data().signer.address().to_string();
+    ic_cdk::println!("EVM caller wallet address: {}", address);
+    write_utf16_string(&mut caller, &address, buffer_ptr)
 }
 
 fn evm_chain_id(caller: Caller<ExecutionContext>) -> u64 {
@@ -137,6 +147,14 @@ fn read_utf16_string(caller: &wasmi::Caller<ExecutionContext>, str_ptr: i32, max
     }
     String::from_utf16(&u16s)
         .map_err(|e| Error::new(format!("Invalid UTF-16 string: {}", e)))
+}
+
+/// Writes the given string as UTF-16LE into the guest memory at the given pointer.
+fn write_utf16_string(caller: &mut Caller<ExecutionContext>, str: &String, buffer_ptr: i32) -> Result<(), Error> {
+    let bytes: Vec<u8> = str.encode_utf16().flat_map(|unit| unit.to_le_bytes()).collect();
+    ic_cdk::println!("Writing UTF-16. length: {}", bytes.len());
+    get_memory(&caller).write(caller, buffer_ptr as usize, &bytes)?;
+    Ok(())
 }
 
 /// Copies the shared buffer into the guest memory at the given pointer.

@@ -1,5 +1,6 @@
 import { Promise } from "./promise";
 import { SharedPromise } from "./internal/async";
+import { toHexString } from "./util";
 
 export enum EvmChain {
     EthereumMainnet = 1,
@@ -42,13 +43,16 @@ export function chainName(chainId: u64): string {
  * Currently this class only implements the `forCaller()` method to
  * retrieve the wallet for the caller that invoked the current Frosty Function.
  */
-export class Wallet {
-  private constructor(
-    readonly address: string
-  ) {}
+export class EthWallet {
 
-  static forCaller(): Wallet {
-    return new Wallet("test")
+  address(): string {
+    let buffer = new ArrayBuffer(42 * 2);  // 42 chars * 2 bytes / char
+    callerWalletAddress(changetype<i32>(buffer));
+    return String.UTF16.decode(buffer)
+  }
+
+  static forCaller(): EthWallet {
+    return new EthWallet()
   }
 }
 

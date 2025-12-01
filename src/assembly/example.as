@@ -1,5 +1,5 @@
 import { CALLDATA, JOB_ID } from "frosty";
-import { CALLING_CHAIN_NAME, CALLING_CHAIN_ID, Wallet } from "frosty/evm";
+import { CALLING_CHAIN_NAME, CALLING_CHAIN_ID, EthWallet } from "frosty/evm";
 import { ArrayBufferPromise } from "frosty/promise";
 import { verifiableRandomness } from "frosty/random";
 import { toHexString } from "frosty/util";
@@ -13,9 +13,9 @@ export function main(): void {
   // function. The private key is split across the nodes of the Internet Computer and
   // signs messages using Threshold ECDSA. Note that any Frosty Function can manage the
   // the `forCaller()` wallet as long as that caller invokes the function.
-  const wallet = Wallet.forCaller();
+  const wallet = EthWallet.forCaller();
 //  console.log(`Caller address: ${CALLER_ADDRESS}`);
-  console.log(`Caller Frosty Wallet address: ${wallet.address}`);
+  console.log(`Caller Frosty Wallet address: ${wallet.address()}`);
 
 
 
