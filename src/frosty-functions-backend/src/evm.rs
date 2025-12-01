@@ -1,3 +1,5 @@
+use alloy::signers::icp::IcpSigner;
+use alloy::signers::Signer;
 use alloy::sol;
 
 use crate::chain::EvmChain;
@@ -63,12 +65,24 @@ sol! {
 // //    Ok(Address::from_public_key(&pubkey))
 // }
 
+async fn sign_message(chain: EvmChain, message: &[u8]) -> Result<String, String> {
+    let signer = IcpSigner::new(vec![], &public_key_id(chain), None).await.unwrap();
+    let signature = signer.sign_message(message).await.unwrap();
+    Ok(format!("{:?}", signature))
+}
 
 pub async fn transfer_funds( 
     evm_chain: EvmChain,
     to_address: String,
     amount: u64,
 ) -> Result<(), String> {
+
+    let message = "Hello EVM!".to_string();
+    let signature = sign_message(evm_chain.clone(), message.as_bytes()).await?;
+    ic_cdk::println!("Signature for message '{}': {}", message, signature);
+
+    
+
 //     let client = create_client(evm_chain.clone());
 
 //     let mut transaction = TransactionRequest::default()
@@ -251,6 +265,14 @@ pub fn evm_chain_id(chain: EvmChain) -> u64 {
 }
 
 fn public_key_id(chain: EvmChain) -> String {
+    /*
+        let dfx_network = option_env!("DFX_NETWORK").unwrap();
+    match dfx_network {
+        "local" => "dfx_test_key".to_string(),
+        "ic" => "key_1".to_string(),
+        _ => panic!("Unsupported network."),
+    }
+     */
     // Only three keys are available on ICP, see
     // https://internetcomputer.org/docs/building-apps/network-features/signatures/t-ecdsa#signing-messages
     match chain {
