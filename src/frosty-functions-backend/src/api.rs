@@ -1,7 +1,6 @@
 use std::{cmp::min};
 
-use alloy_primitives::Address;
-use ic_cdk::{api::call, call::Call};
+use alloy::primitives::Address;
 use wasmi::{Caller, Error, Func, Global, Linker, Memory, Mutability, Store, Val, errors::LinkerError};
 use crate::{Chain, chain::EvmChain, evm::transfer_funds, execution::{ExecutionContext, LogType}};
 
@@ -80,8 +79,8 @@ fn calldata(mut caller: Caller<ExecutionContext>, buffer_ptr: i32) -> Result<(),
 fn on_chain_id(caller: Caller<ExecutionContext>) -> i64 {
     let context = caller.data();
     if let Some(id) = context.request.on_chain_id.clone() {
-        // TODO: Proper error handling.
-        let id: u64 = id.try_into().unwrap();
+        // TODO: Proper error handling for overflows.
+        let id: u64 = id.to_string().parse().unwrap();
         id as i64
     } else {
         -1
@@ -118,8 +117,11 @@ fn ic_raw_rand(mut caller: Caller<ExecutionContext>, promise_id: i32) -> Result<
         promise_id,
         "Retrieve verifiable randomness".to_string(),
         Box::pin(async {
+            Err("Not yet implemented".to_string())
+            /*
             ic_cdk::management_canister::raw_rand().await
                 .map_err(|e| format!("Failed to get raw_rand: {}", e))
+                */
         }) 
     );
     Ok(())

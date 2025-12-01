@@ -9,17 +9,32 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
+#alloy = { version = "1.1.2", default-features = false, features = [
+#  "rlp",
+#  "rpc-types",
+#  "sol-types"
+#]}
+
+# TODO: Maybe fork and update to ic-cdk 0.19
+# TODO: Maybe can use regular alloy as long as we patch getrandom?
+alloy = { git = "https://github.com/ic-alloy/ic-alloy.git", tag = "v0.3.5-icp.0", default-features = false, features = [
+  "contract",
+  "icp",
+  "sol-types"
+]}
+getrandom = { version = "0.2.15", features = ["custom"] }
+
 anyhow = "1.0.86"
-alloy-rpc-types = "1.1.2"
-alloy-sol-types = "1.4.1"
-alloy-primitives = "1.4.1"
 candid = "0.10"
-evm_rpc_client = { version = "0.3.0", features = ["alloy"] }
-evm_rpc_types = { version = "3.0.0", features = ["alloy"] }
+#ethers-core = "2.0.14"
+#evm_rpc_client = { version = "0.3.0", features = ["alloy"] }
+# Only for Nat256, we use ic-alloy for RPCs  
+evm_rpc_types = { version = "1.1.2" } # , features = ["alloy"] }
 hex = "0.4"
-ic-canister-runtime = "0.1.0"
-ic-cdk = "0.19"
+#ic-canister-runtime = "0.1.0"
+# TODO: Update after updating ic-alloy
+ic-cdk = "0.16"
+#ic-evm-utils = "4.0.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 wasmi = { version = "0.51.2", default-features = false }
-alloy-rlp = "0.3.12"

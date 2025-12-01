@@ -5,7 +5,9 @@ mod execution;
 mod job;
 mod state;
 
+use candid::Nat;
 use chain::{Chain, EvmChain, ChainState, Address};
+use evm_rpc_types::Nat256;
 use job::Job;
 use state::{mutate_state};
 
@@ -24,9 +26,9 @@ fn init() {
 }
 
 #[ic_cdk::query]
-fn get_job_info(chain: Chain, job_id: u64) -> Result<Job, String> {
+fn get_job_info(chain: Chain, job_id: Nat256) -> Result<Job, String> {
     state::read_chain_state(&chain, |state| {
-        state.jobs.get(&job_id)
+        state.jobs.get(&Nat::from(job_id.clone()))
             .cloned()
             .ok_or_else(|| format!("Job not found: {}", job_id))
     })
@@ -45,7 +47,7 @@ async fn temp_simulate_execution(request: JobRequest, wasm: Vec<u8>) -> Result<E
 }
 
 #[ic_cdk::update]
-async fn execute_job(chain: Chain, job_id: u64) -> Result<(), String> {
+async fn execute_job(chain: Chain, job_id: Nat256) -> Result<(), String> {
     crate::execution::execute_job(chain, job_id).await
 }
 
@@ -58,7 +60,7 @@ async fn sync_chain(chain: Chain) -> Result<bool, String> {
 
 /// Returns IDs of jobs currently in the queue for processing.
 #[ic_cdk::query]
-async fn get_queue(chain: Chain) -> Result<Vec<u64>, String> {
+async fn get_queue(chain: Chain) -> Result<Vec<Nat>, String> {
     state::read_chain_state(&chain, |state| {
         Ok(state.job_queue.clone())
     })

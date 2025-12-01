@@ -1,7 +1,8 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use candid::CandidType;
+use candid::{CandidType, Nat};
+use evm_rpc_types::Nat256;
 use wasmi::WasmParams;
 use wasmi::{Engine, Module, TypedFunc, core::TrapCode};
 
@@ -90,9 +91,9 @@ pub struct ExecutionResult {
     // Add other fields as needed (gas used, state changes, etc.)
 }
 
-pub async fn execute_job(chain: Chain, job_id: u64) -> Result<(), String> {
+pub async fn execute_job(chain: Chain, job_id: Nat256) -> Result<(), String> {
     let request = read_chain_state(&chain, |state| {
-        state.jobs.get(&job_id)
+        state.jobs.get(job_id.as_ref())
             .ok_or_else(|| format!("Job not found: {}", job_id))
             .map(|job| job.request.clone())
     })?;

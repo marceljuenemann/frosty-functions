@@ -1,7 +1,8 @@
 
 use std::{collections::HashMap};
 
-use evm_rpc_types::Hex20;
+use candid::Nat;
+use evm_rpc_types::{Hex20};
 
 use crate::{job::{Job, JobRequest}, state::{mutate_chain_state, read_chain_state}};
 
@@ -28,11 +29,11 @@ pub struct ChainState {
     // A mapping of job IDs to their corresponding Job structs.
     // TODO: In case of block re-orgs we might see multiple jobs with the same job ID.
     // So maybe better to switch to a hash? 
-    pub jobs: HashMap<u64, Job>,
+    pub jobs: HashMap<Nat, Job>,
 
     // A queue of job IDs that still need to be processed.
     // TODO: Probably move to one queue for all chains?
-    pub job_queue: Vec<u64>,
+    pub job_queue: Vec<Nat>,
 
     // TODO: Add balances here.
 }
@@ -65,11 +66,11 @@ pub async fn sync_chain(chain: &Chain) -> Result<bool, String> {
         for job_request in new_jobs {
             // TODO: on_chain_id is not the best key as it could be duplicate due to re-orgs.
             // It might also be absent for non-EVM chains.
-            let job_id = u64::try_from(job_request.on_chain_id.clone().unwrap()).unwrap();
+            let job_id: Nat = Nat::from(job_request.on_chain_id.clone().unwrap());
             if state.jobs.contains_key(&job_id) {
                 ic_cdk::println!("ERROR: Job already exists: {:?} {:?}", chain, &job_id);
             } else {
-                state.jobs.insert(job_id, Job { request: job_request });
+                state.jobs.insert(job_id.clone(), Job { request: job_request });
                 state.job_queue.push(job_id);
             }
         }

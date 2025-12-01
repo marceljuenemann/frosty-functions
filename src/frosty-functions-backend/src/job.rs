@@ -1,4 +1,4 @@
-use candid::CandidType;
+use candid::{CandidType, Nat};
 use evm_rpc_types::{Hex32, Nat256};
 use serde::{Deserialize, Serialize};
 
