@@ -1,7 +1,16 @@
+use alloy::network::TransactionBuilder;
+use alloy::network::EthereumWallet;
+use alloy::primitives::Address;
+use alloy::primitives::U256;
+use alloy::providers::Provider;
+use alloy::providers::ProviderBuilder;
+use alloy::rpc::types::TransactionRequest;
 use alloy::sol;
+use alloy::transports::icp::{L2MainnetService, RpcApi, RpcService};
 
 use crate::chain::EvmChain;
 use crate::job::JobRequest;
+use crate::state::read_state;
 
 // Define the event with Alloy's sol! macro (must match Bridge.sol exactly)
 // TODO: Figure out how to import Bridge.sol without pulling in getrandom 
@@ -14,7 +23,32 @@ sol! {
     "../../contracts/Bridge.sol"
 }
 
+/// Transfers funds from the canister's main EVM account to the specified address.
+/// The nonce logic assumes that all transactions suceed, so callers should ensure
+/// that enough gas is available on the account.
+pub async fn transfer_funds( 
+    chain: EvmChain,
+    to_address: Address,
+    amount: u64,
+) -> Result<(), String> {
+    let wallet = EthereumWallet::from(read_state(|s| s.main_signer.clone()));
+    let config = alloy::transports::icp::IcpConfig::new(rpc_service(&chain));
+    let provider = ProviderBuilder::new()
+        .with_gas_estimation()
+        .wallet(wallet)
+        .on_icp(config);
 
+    let nonce = 0;  // TODO: increment.
+    let tx = TransactionRequest::default()
+        .with_to(to_address)
+        .with_value(U256::from(amount))
+        .with_nonce(nonce)
+        .with_chain_id(evm_chain_id(chain));
+
+    let transport_result = provider.send_transaction(tx.clone()).await;
+    ic_cdk::println!("Sent transaction: {:?}", transport_result);
+    Err("Not yet implemented".to_string())
+}
     
 
 // // TODO: Move to some init call.
@@ -66,11 +100,6 @@ sol! {
 // //    Ok(Address::from_public_key(&pubkey))
 // }
 
-pub async fn transfer_funds( 
-    evm_chain: EvmChain,
-    to_address: String,
-    amount: u64,
-) -> Result<(), String> {
 
     /*
     
@@ -125,11 +154,6 @@ pub async fn transfer_funds(
 
 
    //  client.send_raw_transaction(transaction.into());
-
-
-
-    Ok(())
-}
 
 
 /// Fetches requested jobs from the EVM chain.
@@ -225,35 +249,20 @@ pub async fn fetch_jobs(evm_chain: &EvmChain, contract_address: String, since_bl
 //     builder.build()
 // }
 
-// fn get_rpc_sources(evm_chain: &EvmChain) -> RpcServices {
-//     match evm_chain {
-//         EvmChain::Localhost => RpcServices::Custom {
-//             chain_id: evm_chain_id(EvmChain::Localhost),
-//             services: vec![evm_rpc_types::RpcApi {
-//                 url: "http://127.0.0.1:8545".to_string(),
-//                 headers: None,
-//             }],
-//         },
-//         EvmChain::ArbitrumSepolia => RpcServices::Custom {
-//             chain_id: evm_chain_id(EvmChain::ArbitrumSepolia),
-//             services: vec![
-//                 evm_rpc_types::RpcApi {
-//                     url: "https://arbitrum-sepolia-rpc.publicnode.com".to_string(),
-//                     headers: None,
-//                 },
-//                 evm_rpc_types::RpcApi {
-//                     url: "https://arbitrum-sepolia.drpc.org".to_string(),
-//                     headers: None,
-//                 },
-//                 evm_rpc_types::RpcApi {
-//                     url: "https://arbitrum-sepolia.gateway.tenderly.co".to_string(),
-//                     headers: None,
-//                 },
-//             ],
-//         },
-//         EvmChain::ArbitrumOne => RpcServices::ArbitrumOne(None)
-//     }
-// }
+fn rpc_service(evm_chain: &EvmChain) -> RpcService {
+    // TODO: Fetch from multiple providers to ensure consistency.
+    match evm_chain {
+        EvmChain::Localhost => RpcService::Custom(RpcApi {
+            url: "http://127.0.0.1:8545".to_string(),
+            headers: None,
+        }),
+        EvmChain::ArbitrumSepolia => RpcService::Custom(RpcApi {
+            url: "https://arbitrum-sepolia-rpc.publicnode.com".to_string(),
+            headers: None,
+        }),
+        EvmChain::ArbitrumOne => RpcService::ArbitrumOne(L2MainnetService::Alchemy)
+    }
+}
 
 pub fn evm_chain_id(chain: EvmChain) -> u64 {
     match chain {

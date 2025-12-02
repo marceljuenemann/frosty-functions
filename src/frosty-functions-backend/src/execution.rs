@@ -127,7 +127,7 @@ pub async fn execute_job(chain: Chain, job_id: Nat256) -> Result<(), String> {
 
 // TODO: Remove async
 pub async fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionResult, String> {
-    let signer = signer_for_address(&request.chain, &request.caller).await?;
+    let signer = signer_for_address(&request.caller).await?;
 
     let mut execution = JobExecution::init(request.clone(), wasm, true, signer)?;
     // TODO: Commit after errors.
@@ -145,8 +145,8 @@ pub async fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionR
     while !execution.store.data().async_tasks.is_empty() {
         ic_cdk::println!("Processing {} async tasks...", execution.store.data().async_tasks.len());
 
-        // TODO: Wait for multiple tasks in parallel.
-        let task = execution.store.data_mut().async_tasks.pop().unwrap();
+        // TODO: Wait for multiple tasks in parallel using spawn.
+        let task = execution.store.data_mut().async_tasks.remove(0);
         let result = task.future.await;
         execution.callback(task.id, &result)?;
         // TODO: Start more tasks.

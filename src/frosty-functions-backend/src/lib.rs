@@ -12,10 +12,12 @@ use evm_rpc_types::Nat256;
 use job::Job;
 use state::{mutate_state};
 
-use crate::{execution::ExecutionResult, job::JobRequest};
+use crate::{execution::ExecutionResult, job::JobRequest, state::init_state};
 
-#[ic_cdk::init]
-fn init() {
+#[ic_cdk::update]
+async fn init() {
+    // TODO: Restrict to controllers.
+    init_state().await;
     mutate_state(|state| {
         // TODO: Make bridge addresses configurable.
         let local_bridge_address: Address = Address::EvmAddress("0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9".parse().unwrap());

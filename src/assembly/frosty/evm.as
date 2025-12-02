@@ -1,4 +1,4 @@
-import { Promise } from "./promise";
+import { Promise, Done, DONE } from "./promise";
 import { SharedPromise } from "./internal/async";
 
 export enum EvmChain {
@@ -44,6 +44,7 @@ export function chainName(chainId: u64): string {
  */
 export class EthWallet {
 
+  // TODO: Move to Address class with a toString method
   address(): string {
     let buffer = new ArrayBuffer(42 * 2);  // 42 chars * 2 bytes / char
     __evm_caller_wallet_address(changetype<i32>(buffer));
@@ -63,6 +64,19 @@ export class EthWallet {
     return promise.map<Uint8Array>(buffer => Uint8Array.wrap(buffer));
   }
 
+  /**
+   * Deposit Ethereum from the gas balance of the current Frosty Function execution.
+   * 
+   * Callers need to ensure that the Frosty Function is left with sufficient gas to
+   * not run out of gas during execution.
+   */
+  // TODO: Return TransactionReceipt or similar
+  depositGas(amount: u64): Promise<Done> {
+    let promise = new SharedPromise();
+    __evm_caller_wallet_deposit(amount, promise.id);
+    return promise.map<Done>(() => DONE);
+  }
+
   static forCaller(): EthWallet {
     return new EthWallet()
   }
@@ -71,35 +85,8 @@ export class EthWallet {
 @external("❄️", "evm_caller_wallet_address")
 declare function __evm_caller_wallet_address(bufferPtr: i32): void;
 
+@external("❄️", "evm_caller_wallet_deposit")
+declare function __evm_caller_wallet_deposit(amount: u64, promiseId: i32): void;
+
 @external("❄️", "evm_caller_wallet_sign_message")
 declare function __evm_caller_wallet_sign_message(messagePtr: i32, promiseId: i32): void;
-
-/**
- * Submits a transaction to the EVM chain that invoked this Frosty Function.
- * 
- * The callback will be routed through the Frosty Function bridge contract
- * and call into the contract that called `invokeFunction`, unless it was
- * called by an external account.
- * 
- * Both the amount specified and the gas costs for the transaction will be
- * deducted from the gas of the current Frosty Function execution.
- * 
- * @param data arbitrary calldata to include in the callback
- * @param amount amount of native currency to include in the callback
- */
-// TODO: Support amounts larger than 2^64 (which is around 18 ETH).
-// TODO: Decide whether to still build a callback or only support the
-// wallet method? Potential issue is that it requires an additional transaction,
-// although not if the caller takes care of funding it properly beforehand.
-/*
-export function callback(data: ArrayBuffer, amount: u64): Promise<ArrayBuffer> {
-  // TODO: Actually pass data and amount.
-  // TODO: Have a reasonable return value.
-  let promise = new SharedPromise();
-  __evm_callback(promise.id, changetype<i32>(data), amount);
-  return promise;
-}
-
-@external("❄️", "evm_callback")
-declare function __evm_callback(promiseId: i32, dataPtr: i32, amount: u64): void;
-*/

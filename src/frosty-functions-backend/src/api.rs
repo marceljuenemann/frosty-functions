@@ -1,6 +1,3 @@
-use std::{cmp::min};
-
-use alloy::primitives::Address;
 use alloy::signers::Signer;
 use wasmi::{Caller, Error, Func, Global, Linker, Memory, Mutability, Store, Val, errors::LinkerError};
 use crate::{Chain, chain::EvmChain, evm::transfer_funds, execution::{ExecutionContext, LogType}};
@@ -45,8 +42,8 @@ pub fn register_host_functions(linker: &mut Linker<ExecutionContext>, store: &mu
     register!(copy_shared_buffer, linker, store);
     register!(on_chain_id, linker, store);
 
-    register!(evm_callback, linker, store);
     register!(evm_caller_wallet_address, linker, store);
+    register!(evm_caller_wallet_deposit, linker, store);
     register!(evm_caller_wallet_sign_message, linker, store);
     register!(evm_chain_id, linker, store);
 
@@ -103,12 +100,38 @@ fn evm_caller_wallet_address(mut caller: Caller<ExecutionContext>, buffer_ptr: i
     write_utf16_string(&mut caller, &address, buffer_ptr)
 }
 
+/// Transfers the specified amount of gas tokens to the caller wallet.
+/// This operates on the calling chain, so it only works if the Frosty Function was invoked from an EVM chain.
+/// 
+/// TODO: Offer a general transfer_gas function to any address. We'd just need to handle
+/// replacing failing transactions to not cause all future transaction to get stuck.
+fn evm_caller_wallet_deposit(mut caller: Caller<ExecutionContext>, amount: u64, promise_id: i32) -> Result<(), Error> {
+    let evm_chain = match &caller.data().request.chain {
+        Chain::Evm(id) => id.clone(),
+        _ => return Err(Error::new("CallerWallet.deposit can only be used on EVM chains".to_string())),
+    };
+    let wallet = caller.data().caller_wallet.clone();
+    
+    caller.data_mut().queue_task(
+        promise_id,
+        format!("CallerWallet.deposit({})", amount),
+        Box::pin(async move {
+            // TODO: Check gas balance first.
+
+            transfer_funds(evm_chain, wallet.address(), amount).await?;
+
+            Ok(vec![0u8])
+        }) 
+    );
+    Ok(())
+}
+
 /// Signs a EIP-191 message.
 // TOOD: Also expose lower level sign_hash to sign arbitrary hashes.  
 fn evm_caller_wallet_sign_message(mut caller: Caller<ExecutionContext>, message_ptr: i32, promise_id: i32) -> Result<(), Error> {
     let message = read_buffer(&caller, message_ptr, BUFFER_MAX_LEN)?;
     let wallet = caller.data().caller_wallet.clone();
-    // TODO: Spwan
+    // TODO: Spawn rather than queue task
     caller.data_mut().queue_task(
         promise_id,
         format!("CallerWallet.signMessage(0x{})", clip_string(&hex::encode(&message), 100)),
@@ -129,24 +152,6 @@ fn evm_chain_id(caller: Caller<ExecutionContext>) -> u64 {
     }
 }
 
-fn evm_callback(mut caller: Caller<ExecutionContext>, promise_id: i32, data_ptr: i32, amount: u64) -> Result<(), Error> {
-    // TODO: Add actual arguments
-    let recipient: Address = "0xe712a7e50aba019a6d225584583b09c4265b037b".parse().unwrap();
-    let recipient: [u8; 20] = recipient.into();
-    let data: Vec<u8> = vec![0xDE, 0xAD, 0xBE, 0xEF];
-
-    caller.data_mut().queue_task(
-        promise_id,
-        format!("EVM callback with amount {} and data 0x{}", amount, hex::encode(&data)),
-        Box::pin(async move {
-            ic_cdk::println!("Hello EVM!");
-            transfer_funds(EvmChain::Localhost, "0xe712a7e50aba019a6d225584583b09c4265b037b".to_string(), amount).await?;
-            Ok(vec![0u8])
-        }) 
-    );
-    Ok(())
-}
-    
 fn ic_raw_rand(mut caller: Caller<ExecutionContext>, promise_id: i32) -> Result<(), Error> {
     caller.data_mut().queue_task(
         promise_id,

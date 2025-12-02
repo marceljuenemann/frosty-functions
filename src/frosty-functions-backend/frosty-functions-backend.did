@@ -23,14 +23,15 @@ type LogEntry = record { level : LogType; message : text };
 type LogType = variant { System; Default };
 type Result = variant { Ok; Err : text };
 type Result_1 = variant { Ok : Job; Err : text };
-type Result_2 = variant { Ok : vec nat64; Err : text };
+type Result_2 = variant { Ok : vec nat; Err : text };
 type Result_3 = variant { Ok : ExecutionResult; Err : text };
 type Result_4 = variant { Ok : bool; Err : text };
-service : () -> {
-  execute_job : (Chain, nat64) -> (Result);
-  get_job_info : (Chain, nat64) -> (Result_1) query;
+service : {
+  execute_job : (Chain, nat) -> (Result);
+  get_job_info : (Chain, nat) -> (Result_1) query;
   // Returns IDs of jobs currently in the queue for processing.
   get_queue : (Chain) -> (Result_2) query;
+  init : () -> ();
   simulate_execution : (JobRequest, blob) -> (Result_3) query;
   // Fetches new jobs from the specified chain.
   // Returns Ok(true) if new jobs were synced.
