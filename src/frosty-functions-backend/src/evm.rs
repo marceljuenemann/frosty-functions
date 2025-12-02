@@ -1,6 +1,7 @@
 use alloy::network::TransactionBuilder;
 use alloy::network::EthereumWallet;
 use alloy::primitives::Address;
+use alloy::primitives::TxHash;
 use alloy::primitives::U256;
 use alloy::providers::Provider;
 use alloy::providers::ProviderBuilder;
@@ -30,10 +31,11 @@ pub async fn transfer_funds(
     chain: EvmChain,
     to_address: Address,
     amount: u64,
-) -> Result<(), String> {
+) -> Result<TxHash, String> {
     let wallet = EthereumWallet::from(read_state(|s| s.main_signer.clone()));
     let config = alloy::transports::icp::IcpConfig::new(rpc_service(&chain));
     let provider = ProviderBuilder::new()
+        // TODO: Estimate gas manually so we can deducct it.
         .with_gas_estimation()
         .wallet(wallet)
         .on_icp(config);
@@ -45,9 +47,9 @@ pub async fn transfer_funds(
         .with_nonce(nonce)
         .with_chain_id(evm_chain_id(chain));
 
-    let transport_result = provider.send_transaction(tx.clone()).await;
-    ic_cdk::println!("Sent transaction: {:?}", transport_result);
-    Err("Not yet implemented".to_string())
+    let transaction_result = provider.send_transaction(tx.clone()).await
+        .map_err(|e| format!("Failed to send transaction: {}", e))?;
+    Ok(transaction_result.tx_hash().clone())
 }
     
 

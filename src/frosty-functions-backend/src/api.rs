@@ -58,11 +58,7 @@ fn abort_host(message_ptr: i32, file_ptr: i32, line: i32, column: i32) {
 }
 
 fn seed() -> Result<f64, Error> {
-    // TODO: Require asynchronous initialization first. In fact, will need
-    // to provide a separate API as we can't make seed() asynchronous.
-    // caller.data().log(LogType::System, "Seeding randomness with VRF");
-    // return ic_cdk::api::management_canister::main::raw_rand() as i64;
-    Err(Error::new("Verifiable Random Function not yet implemented"))
+    Err(Error::new("Use the frosty/rand module to retrieve verifiable randomness"))
 }
 
 // TODO: Support console.error etc.
@@ -117,10 +113,12 @@ fn evm_caller_wallet_deposit(mut caller: Caller<ExecutionContext>, amount: u64, 
         format!("CallerWallet.deposit({})", amount),
         Box::pin(async move {
             // TODO: Check gas balance first.
-
-            transfer_funds(evm_chain, wallet.address(), amount).await?;
-
-            Ok(vec![0u8])
+            let tx = transfer_funds(evm_chain, wallet.address(), amount).await?;
+            // TODO: In order to add to the execution logs, we'll need to store the execution object
+            // and context on the heap and manually delete it after execution. We'll need some
+            // cleanup mechanism for executions that are stale / paniced.
+            ic_cdk::println!("[#{}] Sent transaction with hash: 0x{}", promise_id, tx);
+            Ok(tx.as_slice().into())
         }) 
     );
     Ok(())

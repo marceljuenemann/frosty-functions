@@ -6,13 +6,14 @@ mod job;
 mod signer;
 mod state;
 
+use alloy::signers::Signer;
 use candid::Nat;
 use chain::{Chain, EvmChain, ChainState, Address};
 use evm_rpc_types::Nat256;
 use job::Job;
 use state::{mutate_state};
 
-use crate::{execution::ExecutionResult, job::JobRequest, state::init_state};
+use crate::{execution::ExecutionResult, job::JobRequest, state::{init_state, read_state}};
 
 #[ic_cdk::update]
 async fn init() {
@@ -26,6 +27,11 @@ async fn init() {
         state.chains.insert(Chain::Evm(EvmChain::ArbitrumSepolia), ChainState::new(bridge_address.clone()));
         state.chains.insert(Chain::Evm(EvmChain::Localhost), ChainState::new(local_bridge_address.clone()));
     });
+}
+
+#[ic_cdk::query]
+fn evm_address() -> String {
+    read_state(|state| state.main_signer.address().to_string())
 }
 
 #[ic_cdk::query]

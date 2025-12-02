@@ -44,6 +44,8 @@ Inspired by [icp-evm-coprocessor-starter](https://github.com/letmejustputthisher
   * `sync_chain`
   * `get_queue`
   * `execute_job`
+* You can check balances with `cast balance 0xA7AC21127fE04FbE9502AEeFDd55204CF51f2C25 --rpc-url ht
+tp://localhost:8545 --ether`
   
 ### Regenerate candid interface
 

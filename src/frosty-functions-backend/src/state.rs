@@ -32,11 +32,11 @@ pub async fn init_state() {
 }
 
 pub fn read_state<R>(f: impl FnOnce(&State) -> R) -> R {
-    STATE.with_borrow(|s| f(s.as_ref().unwrap()))
+    STATE.with_borrow(|s| f(s.as_ref().expect("State is not initialized")))
 }
 
 pub fn mutate_state<F, R>(f: F) -> R where F: FnOnce(&mut State) -> R {
-    STATE.with_borrow_mut(|s| f(s.as_mut().unwrap()))
+    STATE.with_borrow_mut(|s| f(s.as_mut().expect("State is not initialized")))
 }
 
 pub fn read_chain_state<R>(chain: &Chain, f: impl FnOnce(&ChainState) -> Result<R, String>) -> Result<R, String> {

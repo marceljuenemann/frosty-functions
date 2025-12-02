@@ -43,7 +43,7 @@ struct AsyncTask {
     pub description: String,
     // Future that will produce the result.
     pub future: Pin<Box<dyn Future<Output = AsyncResult>>>,
-} 
+}
 
 /// Runtime context available to host functions during execution.
 pub struct ExecutionContext {

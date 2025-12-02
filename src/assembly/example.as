@@ -19,8 +19,7 @@ export function main(): void {
 
   // You can use wallet.signMessage to sign arbitrary EIP-191 messages.
   wallet.signMessage(String.UTF8.encode("Hello, World!")).then((signature) => {
-    console.log(`Signature length: ${signature.length} bytes`);
-    console.log(`Signed message: ${hex.encode(signature)}`);
+    console.log(`Signature: ${hex.encode(signature)}`);
   });
 
   // You can transfer gas that you sent to the Frosty function into the wallet.

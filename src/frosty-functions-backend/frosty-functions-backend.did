@@ -27,6 +27,7 @@ type Result_2 = variant { Ok : vec nat; Err : text };
 type Result_3 = variant { Ok : ExecutionResult; Err : text };
 type Result_4 = variant { Ok : bool; Err : text };
 service : {
+  evm_address : () -> (text) query;
   execute_job : (Chain, nat) -> (Result);
   get_job_info : (Chain, nat) -> (Result_1) query;
   // Returns IDs of jobs currently in the queue for processing.
