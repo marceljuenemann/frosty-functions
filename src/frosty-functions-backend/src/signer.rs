@@ -3,7 +3,6 @@ use alloy::{signers::icp::IcpSigner};
 /// Subset of IcpSigner used as an identifier.
 pub struct IcpSignerId {
     pub derivation_path: Vec<Vec<u8>>,
-    pub key_id: String,
 }
 
 // TODO: Cache

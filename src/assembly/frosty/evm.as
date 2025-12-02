@@ -69,12 +69,13 @@ export class EthWallet {
    * 
    * Callers need to ensure that the Frosty Function is left with sufficient gas to
    * not run out of gas during execution.
+   * 
+   * @returns A promise that resolves to the transaction hash as a Uint8Array.
    */
-  // TODO: Return TransactionReceipt or similar
-  depositGas(amount: u64): Promise<Done> {
+  depositGas(amount: u64): Promise<Uint8Array> {
     let promise = new SharedPromise();
     __evm_caller_wallet_deposit(amount, promise.id);
-    return promise.map<Done>(() => DONE);
+    return promise.map<Uint8Array>(buffer => Uint8Array.wrap(buffer));
   }
 
   static forCaller(): EthWallet {

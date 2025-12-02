@@ -111,15 +111,20 @@ fn evm_caller_wallet_deposit(mut caller: Caller<ExecutionContext>, amount: u64, 
     caller.data_mut().queue_task(
         promise_id,
         format!("CallerWallet.deposit({})", amount),
+        // TODO: Move the messy parts into a spawn function.
         Box::pin(async move {
             // TODO: Check gas balance first.
+            AsyncFnOnce
             let tx = transfer_funds(evm_chain, wallet.address(), amount).await?;
             // TODO: In order to add to the execution logs, we'll need to store the execution object
             // and context on the heap and manually delete it after execution. We'll need some
             // cleanup mechanism for executions that are stale / paniced.
+            // Alternatively, maybe just have a synchronous callback that's called after
+            // the future completed already, so that we can do some logging etc.
             ic_cdk::println!("[#{}] Sent transaction with hash: 0x{}", promise_id, tx);
+            // TODO: Do add the transaction to the execution logs.
             Ok(tx.as_slice().into())
-        }) 
+        })
     );
     Ok(())
 }

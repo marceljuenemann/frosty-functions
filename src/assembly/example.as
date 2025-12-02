@@ -26,8 +26,8 @@ export function main(): void {
   // However, make sure to leave enough gas for the function execution to complete!
   // Note that this actually results in an Ethereum transaction with signnificant
   // gas costs, depending on which chain you are operating on.  
-  wallet.depositGas(10000).then(() => {
-    console.log(`Deposited 10,000 gas to caller wallet.`);
+  wallet.depositGas(10000).then((txHash) => {
+    console.log(`Transferred gas into Wallet.forCaller(). Tx hash: ${hex.encode(txHash)}`);
   });
 
 

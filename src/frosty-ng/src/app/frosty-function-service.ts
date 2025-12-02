@@ -106,7 +106,7 @@ export class FrostyFunctionService {
   async simulate(wasm: Uint8Array): Promise<SimulationResult> {
     // TODO: Configurable request.
     const request: JobRequest = {
-      chain: { Evm: { Localhost: null } },
+      chain: { Evm: { ArbitrumSepolia: null } },
       transaction_hash: [],
       block_hash: [],
       block_number: [],

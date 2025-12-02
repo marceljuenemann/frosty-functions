@@ -35,16 +35,20 @@ pub async fn transfer_funds(
     let wallet = EthereumWallet::from(read_state(|s| s.main_signer.clone()));
     let config = alloy::transports::icp::IcpConfig::new(rpc_service(&chain));
     let provider = ProviderBuilder::new()
-        // TODO: Estimate gas manually so we can deducct it.
-        .with_gas_estimation()
+        // TODO: Always set 21000 as gas limit
+        // TODO: Fetch base fee and cache it for some time.
+        // TODO: Use our own NonceManager that persists nonces.
+        .with_recommended_fillers()
+//        .with_gas_estimation()
+//        .filler(NonceFiller::new(nonce_manager))
         .wallet(wallet)
         .on_icp(config);
 
-    let nonce = 0;  // TODO: increment.
+    let nonce = 1;  // TODO: increment.
     let tx = TransactionRequest::default()
         .with_to(to_address)
         .with_value(U256::from(amount))
-        .with_nonce(nonce)
+//        .with_nonce(nonce)
         .with_chain_id(evm_chain_id(chain));
 
     let transaction_result = provider.send_transaction(tx.clone()).await
