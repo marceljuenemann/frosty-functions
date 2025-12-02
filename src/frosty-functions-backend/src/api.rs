@@ -5,6 +5,11 @@ use alloy::signers::Signer;
 use wasmi::{Caller, Error, Func, Global, Linker, Memory, Mutability, Store, Val, errors::LinkerError};
 use crate::{Chain, chain::EvmChain, evm::transfer_funds, execution::{ExecutionContext, LogType}};
 
+/// The maximum length of data that can be passed to/from the guest.
+// TODO: Consider increasing if there is a use case.
+const BUFFER_MAX_LEN: usize = 10_000_000;
+
+/// The maximum length of console log messages.
 const CONSOLE_LOG_MAX_LEN: usize = 10_000;
 
 macro_rules! log {
@@ -42,6 +47,7 @@ pub fn register_host_functions(linker: &mut Linker<ExecutionContext>, store: &mu
 
     register!(evm_callback, linker, store);
     register!(evm_caller_wallet_address, linker, store);
+    register!(evm_caller_wallet_sign_message, linker, store);
     register!(evm_chain_id, linker, store);
 
     register!(ic_raw_rand, linker, store);
@@ -92,9 +98,28 @@ fn on_chain_id(caller: Caller<ExecutionContext>) -> i64 {
 /// Writes the caller's wallet address as a UTF-16LE string into the provided buffer.
 /// The buffer is expected to be large enough to hold the address string.
 fn evm_caller_wallet_address(mut caller: Caller<ExecutionContext>, buffer_ptr: i32) -> Result<(), Error> {
-    let address = caller.data().signer.address().to_string();
+    let address = caller.data().caller_wallet.address().to_string();
     ic_cdk::println!("EVM caller wallet address: {}", address);
     write_utf16_string(&mut caller, &address, buffer_ptr)
+}
+
+/// Signs a EIP-191 message.
+// TOOD: Also expose lower level sign_hash to sign arbitrary hashes.  
+fn evm_caller_wallet_sign_message(mut caller: Caller<ExecutionContext>, message_ptr: i32, promise_id: i32) -> Result<(), Error> {
+    let message = read_buffer(&caller, message_ptr, BUFFER_MAX_LEN)?;
+    let wallet = caller.data().caller_wallet.clone();
+    // TODO: Spwan
+    caller.data_mut().queue_task(
+        promise_id,
+        format!("CallerWallet.signMessage(0x{})", clip_string(&hex::encode(&message), 100)),
+        Box::pin(async move {
+            let sig = wallet.sign_message(message.as_ref()).await
+                .map_err(|e| format!("Failed to sign message: {}", e))?;
+            ic_cdk::println!("Signed message length in bytes: {}", sig.as_bytes().len());
+            Ok(sig.as_bytes().into())
+        }) 
+    );
+    Ok(())
 }
 
 fn evm_chain_id(caller: Caller<ExecutionContext>) -> u64 {
@@ -175,7 +200,10 @@ fn read_buffer(caller: &Caller<ExecutionContext>, ptr: i32, max_len: usize) -> R
     let mut buf_len = [0u8; 4];
     memory.read(caller, ptr - 4, &mut buf_len)
         .map_err(|e| Error::new(format!("Failed reading buffer length: {}", e)))?;
-    let buf_len = min(u32::from_le_bytes(buf_len) as usize, max_len);
+    let buf_len = u32::from_le_bytes(buf_len) as usize;
+    if buf_len > max_len {
+        return Err(Error::new(format!("Buffer length {} exceeds maximum allowed {}", buf_len, max_len)));
+    }
 
     // Read the bytes into the buffer
     let mut bytes = vec![0u8; buf_len];
@@ -189,4 +217,14 @@ fn get_memory(caller: &Caller<ExecutionContext>) -> Memory {
         .get_export("memory")
         .and_then(|ext| ext.into_memory())
         .expect("Invalid WASM module: No memory found")
+}
+
+fn clip_string(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        let mut clipped = s[..max_len - 3].to_string();
+        clipped.push_str("...");
+        clipped
+    }
 }

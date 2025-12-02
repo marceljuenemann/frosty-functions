@@ -48,7 +48,8 @@ struct AsyncTask {
 /// Runtime context available to host functions during execution.
 pub struct ExecutionContext {
     pub request: JobRequest,
-    pub signer: IcpSigner,
+    // The shared wallet of the caller of the execution.
+    pub caller_wallet: IcpSigner,
     pub simulation: bool,
     // Logs written during the current execution. Will be commited
     // to stable memory before yielding execution.
@@ -175,13 +176,10 @@ impl JobExecution {
         let engine = Engine::new(&config);
         let module = Module::new(&engine, &wasm[..]).map_err(|e| format!("Failed to load WASM module: {}", e))?;
         
-
-        ic_cdk::println!("Signer public key: {:?}", signer.public_key());
-        
         // Create store with execution context
         let context = ExecutionContext {
             request: request.clone(),
-            signer,
+            caller_wallet: signer,
             simulation: simulation,
             logs: Vec::new(),
             async_tasks: Vec::new(),
@@ -199,7 +197,7 @@ impl JobExecution {
             .map_err(|e| format!("Failed to register host functions: {}", e))?;
 
         // Initialize and start the module instance.
-        // TODO: Replace ic_cdk::println with custom logging to the job logs.
+        // TODO: Move to instantiate_and_start
         store.data_mut().log(LogType::System, format!("Instantiating WASM module"));
         let instance = linker.instantiate(&mut store, &module)
             .map_err(|e| format!("Failed to instantiate WASM module: {}", e))?

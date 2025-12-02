@@ -2,11 +2,11 @@ import { CALLDATA, JOB_ID } from "frosty";
 import { CALLING_CHAIN_NAME, CALLING_CHAIN_ID, EthWallet } from "frosty/evm";
 import { ArrayBufferPromise } from "frosty/promise";
 import { verifiableRandomness } from "frosty/random";
-import { toHexString } from "frosty/util";
+import { hex } from "frosty/util";
 
 export function main(): void {
   console.log(`Invoked from ${CALLING_CHAIN_NAME} (Chain ID: ${CALLING_CHAIN_ID})`);
-  console.log(`Calldata is: ${toHexString(CALLDATA)}`);
+  console.log(`Calldata is: ${hex.encode(CALLDATA)}`);
   console.log(`Job ID is: ${JOB_ID}`);
 
   // Frosty automatically creates an Ethereum Wallet for the caller that invoked the
@@ -17,6 +17,11 @@ export function main(): void {
 //  console.log(`Caller address: ${CALLER_ADDRESS}`);
   console.log(`Caller Frosty Wallet address: ${wallet.address()}`);
 
+  // You can use wallet.signMessage to sign arbitrary EIP-191 messages.
+  wallet.signMessage(String.UTF8.encode("Hello, World!")).then((signature) => {
+    console.log(`Signature length: ${signature.length} bytes`);
+    console.log(`Signed message: ${hex.encode(signature)}`);
+  });
 
 
 

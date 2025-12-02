@@ -1,6 +1,5 @@
 import { Promise } from "./promise";
 import { SharedPromise } from "./internal/async";
-import { toHexString } from "./util";
 
 export enum EvmChain {
     EthereumMainnet = 1,
@@ -15,13 +14,13 @@ export enum EvmChain {
  * or zero if invoked from a non-EVM chain.
  */
 @lazy
-export const CALLING_CHAIN_ID: u64 = callingChainId();
+export const CALLING_CHAIN_ID: u64 = __evm_chain_id();
 
 @lazy
 export const CALLING_CHAIN_NAME: string = chainName(CALLING_CHAIN_ID);
 
 @external("❄️", "evm_chain_id")
-declare function callingChainId(): u64;
+declare function __evm_chain_id(): u64;
 
 /**
  * Returns a user-friendly name for the given EVM chain ID.
@@ -47,8 +46,21 @@ export class EthWallet {
 
   address(): string {
     let buffer = new ArrayBuffer(42 * 2);  // 42 chars * 2 bytes / char
-    callerWalletAddress(changetype<i32>(buffer));
+    __evm_caller_wallet_address(changetype<i32>(buffer));
     return String.UTF16.decode(buffer)
+  }
+
+  /**
+   * Signs the given message according to EIP-191
+   * 
+   * sign_hash(keccak256(0x19 <0x45 (E)> <thereum Signed Message:\n" + len(message)> <data to sign>))
+   * 
+   * Use String.UTF8.encode or String.UTF16.encode to convert a string to an ArrayBuffer.
+   */
+  signMessage(message: ArrayBuffer): Promise<Uint8Array> {
+    let promise = new SharedPromise();
+    __evm_caller_wallet_sign_message(changetype<i32>(message), promise.id);
+    return promise.map<Uint8Array>(buffer => Uint8Array.wrap(buffer));
   }
 
   static forCaller(): EthWallet {
@@ -57,7 +69,10 @@ export class EthWallet {
 }
 
 @external("❄️", "evm_caller_wallet_address")
-declare function callerWalletAddress(bufferPtr: i32): void;
+declare function __evm_caller_wallet_address(bufferPtr: i32): void;
+
+@external("❄️", "evm_caller_wallet_sign_message")
+declare function __evm_caller_wallet_sign_message(messagePtr: i32, promiseId: i32): void;
 
 /**
  * Submits a transaction to the EVM chain that invoked this Frosty Function.
