@@ -1,4 +1,4 @@
-import { ArrayBufferPromise, Promise } from "./promise";
+import { Promise } from "./promise";
 import { SharedPromise } from "./internal/async";
 
 /**
@@ -7,7 +7,7 @@ import { SharedPromise } from "./internal/async";
  * Refer to the Internet Computer documentation for details.
  * @see https://internetcomputer.org/docs/building-apps/network-features/randomness
  */
-export function verifiableRandomness(): ArrayBufferPromise {
+export function verifiableRandomness(): Promise<ArrayBuffer> {
   let promise = new SharedPromise();
   ic_raw_rand(promise.id);
   return promise;

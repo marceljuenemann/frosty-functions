@@ -1,9 +1,9 @@
-import { Promise, ArrayBufferPromise } from "frosty/promise";
+import { Promise } from "frosty/promise";
 
 /**
  * A Promise that can be resolved by the host.
  */
-export class SharedPromise extends ArrayBufferPromise {
+export class SharedPromise extends Promise<ArrayBuffer> {
   public readonly id: i32;
 
   constructor() {

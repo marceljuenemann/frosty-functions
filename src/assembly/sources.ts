@@ -19,7 +19,7 @@ export const FROSTY_SOURCES = new Map<string, string>([
   ['frosty/promise', promise],
   ['frosty/random', random],
   ['frosty/util', util],
-  ['frosty/internal/async', internal_async],
+  ['frosty/internal/async', internal_async]
 ]);
 
 export const RUNTIME_SOURCE = runtime

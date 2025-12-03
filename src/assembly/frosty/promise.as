@@ -12,14 +12,14 @@ export enum PromiseState {
 // TODO: This is work in progress. Need to add tests and handle all edge cases.
 export class Promise<T> {
   private state: PromiseState = PromiseState.Pending;
-  private value: T = changetype<T>(0);
-  private reason: Error = changetype<Error>(0);
+  private value: Box<T> | null = null;
+  private reason: Error | null = null;
   private callbacks: Array<Callback<T>> = [];
 
   resolve(value: T): void {
     if (this.state === PromiseState.Pending) {
       this.state = PromiseState.Fulfilled;
-      this.value = value;
+      this.value = new Box(value);
       for (let i = 0; i < this.callbacks.length; i++) {
         this.callbacks[i].onFulfilled(value);
       }
@@ -41,14 +41,14 @@ export class Promise<T> {
   /**
    * Add a callback that is invoked exactly once.
    */
-  addCallback(callback: Callback<T>): void {
+  private addCallback(callback: Callback<T>): void {
     switch (this.state) {
       case PromiseState.Fulfilled:
-        callback.onFulfilled(this.value);
+        callback.onFulfilled(this.value!.inner);
         break;
 
       case PromiseState.Rejected:
-        callback.onRejected(this.reason);
+        callback.onRejected(this.reason!);
         break;
 
       case PromiseState.Pending:
@@ -57,14 +57,30 @@ export class Promise<T> {
     }
   }
 
-  map<U>(onFulfilled: (value: T) => U, onError: ((reason: Error) => U) | null = null): Promise<U> {
-    let callback = new MappingCallback<T, U>(onFulfilled, onError);
+  // TODO: Add methods for catching rejected promises: catching, mapError, onError, finally?
+
+  /**
+   * Transforms the Promise value using a callback that has access to additional context.
+   * Only invoked if the Promise is fulfilled successfully.
+   */  
+  mapWith<U, C>(onSuccess: (value: T, context: C) => U, context: C): Promise<U> {
+    let callback = new ClosureCallback<C, T, U>(context, onSuccess, null);
     this.addCallback(callback);
     return callback.nextPromise;
   }
 
-  then(onFulfilled: ((value: T) => void) | null, onError: ((reason: Error) => void) | null = null): void {
-    this.addCallback(new DelegatingCallback<T>(onFulfilled, onError));
+  map<U>(onSuccess : (value: T) => U): Promise<U> {
+    // Reuse mapWith by passing the callback function as context.
+    return this.mapWith<U, (value: T) => U>((value, context) => context(value), onSuccess);
+  }
+
+  then(onSuccess: (value: T) => void): Promise<T> {
+    // Reuse mapWith by passing the callback function as context.
+    this.mapWith<Done, (value: T) => void>((value, context) => {
+      context(value);
+      return DONE;
+    }, onSuccess);
+    return this;
   }
 
   // TODO: Implement catch and finally.
@@ -99,6 +115,10 @@ export class Promise<T> {
   }
 }
 
+class Box<T> {
+  constructor(public readonly inner: T) {}
+}
+
 export class Done {
   static DONE: Done = new Done();
 
@@ -106,98 +126,39 @@ export class Done {
 }
 export const DONE = Done.DONE;
 
-export interface Callback<T> {
+interface Callback<T> {
   onFulfilled(value: T): void;
   onRejected(reason: Error): void;
 }
 
 /**
- * Callback that delegates to provided handlers.
+ * A callback that can hold additional context to work around the lack of 
+ * closures.
+ * 
+ * This callback always creates a new Promise of type U whose value is generated
+ * by the onFulfilledHandler if the original Promise is resolved. If onRejectedHandler
+ * is provided, it must recover to type U as well. Otherwise errors are propagated.
  */
-class DelegatingCallback<T> implements Callback<T> {
-  constructor(
-    private readonly onFulfilledHandler: ((value: T) => void) | null,
-    private readonly onRejectedHandler: ((reason: Error) => void) | null
-  ) {}
-  
-  onFulfilled(value: T): void {
-    if (this.onFulfilledHandler) {
-      this.onFulfilledHandler(value);
-    }
-  }
-
-  onRejected(reason: Error): void {
-    if (this.onRejectedHandler) {
-      this.onRejectedHandler(reason);
-    }
-  }
-}
-
-/**
- * Callback that maps the result to another Promise.
- */
-class MappingCallback<T, U> implements Callback<T> {
+class ClosureCallback<C, T, U> implements Callback<T> {
   public readonly nextPromise: Promise<U> = new Promise<U>();
 
   constructor(
-    private readonly onFulfilledHandler: (value: T) => U,
-    private readonly onRejectedHandler: ((reason: Error) => U) | null
+    private readonly context: C,
+    private readonly onFulfilledHandler: (value: T, context: C) => U,
+    private readonly onRejectedHandler: ((reason: Error, context: C) => U) | null
   ) {}
 
   onFulfilled(value: T): void {
-    this.nextPromise.resolve(this.onFulfilledHandler(value));
+    this.nextPromise.resolve(this.onFulfilledHandler(value, this.context));
   }
 
   onRejected(reason: Error): void {
     if (this.onRejectedHandler) {
       // Recover to a fulfilled state.
-      this.nextPromise.resolve(this.onRejectedHandler(reason));
+      this.nextPromise.resolve(this.onRejectedHandler(reason, this.context));
     } else {
       // Propagate rejection if no handler is provided.
       this.nextPromise.reject(reason);
     }
   }
-}
-
-export class ArrayBufferPromise extends Promise<ArrayBuffer> {
-
-  asUint8Array(): Promise<Uint8Array> {
-    return this.map<Uint8Array>((buffer: ArrayBuffer) => Uint8Array.wrap(buffer));
-  }
-  
-  asUint16Array(): Promise<Uint16Array> {
-    return this.map<Uint16Array>((buffer: ArrayBuffer) => Uint16Array.wrap(buffer));
-  }
-  
-  asUint32Array(): Promise<Uint32Array> {
-    return this.map<Uint32Array>((buffer: ArrayBuffer) => Uint32Array.wrap(buffer));
-  }
-
-  asUint64Array(): Promise<Uint64Array> {
-    return this.map<Uint64Array>((buffer: ArrayBuffer) => Uint64Array.wrap(buffer));
-  }
-
-  asInt8Array(): Promise<Int8Array> {
-    return this.map<Int8Array>((buffer: ArrayBuffer) => Int8Array.wrap(buffer));
-  }
-  
-  asInt16Array(): Promise<Int16Array> {
-    return this.map<Int16Array>((buffer: ArrayBuffer) => Int16Array.wrap(buffer));
-  }
-  
-  asInt32Array(): Promise<Int32Array> {
-    return this.map<Int32Array>((buffer: ArrayBuffer) => Int32Array.wrap(buffer));
-  }
-
-  asInt64Array(): Promise<Int64Array> {
-    return this.map<Int64Array>((buffer: ArrayBuffer) => Int64Array.wrap(buffer));
-  }
-
-  asFloat32Array(): Promise<Float32Array> {
-    return this.map<Float32Array>((buffer: ArrayBuffer) => Float32Array.wrap(buffer));
-  }
-  
-  asFloat64Array(): Promise<Float64Array> {
-    return this.map<Float64Array>((buffer: ArrayBuffer) => Float64Array.wrap(buffer));
-  }  
 }
