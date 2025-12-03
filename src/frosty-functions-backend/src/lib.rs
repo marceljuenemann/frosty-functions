@@ -3,16 +3,22 @@ mod chain;
 mod evm;
 mod execution;
 mod job;
+mod signer;
 mod state;
 
+use alloy::signers::Signer;
+use candid::Nat;
 use chain::{Chain, EvmChain, ChainState, Address};
+use evm_rpc_types::Nat256;
 use job::Job;
 use state::{mutate_state};
 
-use crate::{execution::ExecutionResult, job::JobRequest};
+use crate::{execution::ExecutionResult, job::JobRequest, state::{init_state, read_state}};
 
-#[ic_cdk::init]
-fn init() {
+#[ic_cdk::update]
+async fn init() {
+    // TODO: Restrict to controllers.
+    init_state().await;
     mutate_state(|state| {
         // TODO: Make bridge addresses configurable.
         let local_bridge_address: Address = Address::EvmAddress("0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9".parse().unwrap());
@@ -24,9 +30,14 @@ fn init() {
 }
 
 #[ic_cdk::query]
-fn get_job_info(chain: Chain, job_id: u64) -> Result<Job, String> {
+fn evm_address() -> String {
+    read_state(|state| state.main_signer.address().to_string())
+}
+
+#[ic_cdk::query]
+fn get_job_info(chain: Chain, job_id: Nat256) -> Result<Job, String> {
     state::read_chain_state(&chain, |state| {
-        state.jobs.get(&job_id)
+        state.jobs.get(&Nat::from(job_id.clone()))
             .cloned()
             .ok_or_else(|| format!("Job not found: {}", job_id))
     })
@@ -45,7 +56,7 @@ async fn temp_simulate_execution(request: JobRequest, wasm: Vec<u8>) -> Result<E
 }
 
 #[ic_cdk::update]
-async fn execute_job(chain: Chain, job_id: u64) -> Result<(), String> {
+async fn execute_job(chain: Chain, job_id: Nat256) -> Result<(), String> {
     crate::execution::execute_job(chain, job_id).await
 }
 
@@ -58,7 +69,7 @@ async fn sync_chain(chain: Chain) -> Result<bool, String> {
 
 /// Returns IDs of jobs currently in the queue for processing.
 #[ic_cdk::query]
-async fn get_queue(chain: Chain) -> Result<Vec<u64>, String> {
+async fn get_queue(chain: Chain) -> Result<Vec<Nat>, String> {
     state::read_chain_state(&chain, |state| {
         Ok(state.job_queue.clone())
     })

@@ -1,10 +1,13 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use candid::CandidType;
+use alloy::signers::icp::IcpSigner;
+use candid::{CandidType, Nat};
+use evm_rpc_types::Nat256;
 use wasmi::WasmParams;
 use wasmi::{Engine, Module, TypedFunc, core::TrapCode};
 
+use crate::signer::signer_for_address;
 use crate::{job::JobRequest, state::read_chain_state};
 use crate::api::{register_constants, register_host_functions};
 use crate::chain::Chain;
@@ -40,11 +43,13 @@ struct AsyncTask {
     pub description: String,
     // Future that will produce the result.
     pub future: Pin<Box<dyn Future<Output = AsyncResult>>>,
-} 
+}
 
 /// Runtime context available to host functions during execution.
 pub struct ExecutionContext {
     pub request: JobRequest,
+    // The shared wallet of the caller of the execution.
+    pub caller_wallet: IcpSigner,
     pub simulation: bool,
     // Logs written during the current execution. Will be commited
     // to stable memory before yielding execution.
@@ -90,9 +95,13 @@ pub struct ExecutionResult {
     // Add other fields as needed (gas used, state changes, etc.)
 }
 
-pub async fn execute_job(chain: Chain, job_id: u64) -> Result<(), String> {
+pub async fn execute_job(chain: Chain, job_id: Nat256) -> Result<(), String> {
+
+    Err("execute_job currently deactivated".to_string())
+
+    /*
     let request = read_chain_state(&chain, |state| {
-        state.jobs.get(&job_id)
+        state.jobs.get(job_id.as_ref())
             .ok_or_else(|| format!("Job not found: {}", job_id))
             .map(|job| job.request.clone())
     })?;
@@ -113,11 +122,14 @@ pub async fn execute_job(chain: Chain, job_id: u64) -> Result<(), String> {
     */
 
     Ok(())
+    */
 }
 
 // TODO: Remove async
 pub async fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionResult, String> {
-    let mut execution = JobExecution::init(request.clone(), wasm, true)?;
+    let signer = signer_for_address(&request.caller).await?;
+
+    let mut execution = JobExecution::init(request.clone(), wasm, true, signer)?;
     // TODO: Commit after errors.
     execution.call_by_name("main".to_string())?;
 
@@ -133,8 +145,8 @@ pub async fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionR
     while !execution.store.data().async_tasks.is_empty() {
         ic_cdk::println!("Processing {} async tasks...", execution.store.data().async_tasks.len());
 
-        // TODO: Wait for multiple tasks in parallel.
-        let task = execution.store.data_mut().async_tasks.pop().unwrap();
+        // TODO: Wait for multiple tasks in parallel using spawn.
+        let task = execution.store.data_mut().async_tasks.remove(0);
         let result = task.future.await;
         execution.callback(task.id, &result)?;
         // TODO: Start more tasks.
@@ -158,7 +170,7 @@ struct JobExecution {
 
 impl JobExecution {
     /// Creates a wasmi Engine and initializes the module. 
-    pub fn init(request: JobRequest, wasm: &[u8], simulation: bool) -> Result<Self, String> {
+    pub fn init(request: JobRequest, wasm: &[u8], simulation: bool, signer: IcpSigner) -> Result<Self, String> {
         let mut config = wasmi::Config::default();
         config.consume_fuel(true);
         let engine = Engine::new(&config);
@@ -167,6 +179,7 @@ impl JobExecution {
         // Create store with execution context
         let context = ExecutionContext {
             request: request.clone(),
+            caller_wallet: signer,
             simulation: simulation,
             logs: Vec::new(),
             async_tasks: Vec::new(),
@@ -184,7 +197,7 @@ impl JobExecution {
             .map_err(|e| format!("Failed to register host functions: {}", e))?;
 
         // Initialize and start the module instance.
-        // TODO: Replace ic_cdk::println with custom logging to the job logs.
+        // TODO: Move to instantiate_and_start
         store.data_mut().log(LogType::System, format!("Instantiating WASM module"));
         let instance = linker.instantiate(&mut store, &module)
             .map_err(|e| format!("Failed to instantiate WASM module: {}", e))?

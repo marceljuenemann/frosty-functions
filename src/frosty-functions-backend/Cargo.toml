@@ -9,17 +9,20 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
+# Fork of https://github.com/ic-alloy/ic-alloy.git for latest ic-cdk
+alloy = { git = "https://github.com/marceljuenemann/ic-alloy.git", default-features = false, features = [
+  "contract",
+  "icp",
+  "sol-types"
+]}
+getrandom = { version = "0.2.15", features = ["custom"] }
+
 anyhow = "1.0.86"
-alloy-rpc-types = "1.1.2"
-alloy-sol-types = "1.4.1"
-alloy-primitives = "1.4.1"
 candid = "0.10"
-evm_rpc_client = { version = "0.3.0", features = ["alloy"] }
-evm_rpc_types = { version = "3.0.0", features = ["alloy"] }
+# Only for Nat256, we use ic-alloy for RPCs  
+evm_rpc_types = { version = "3.0" } # , features = ["alloy"] }
 hex = "0.4"
-ic-canister-runtime = "0.1.0"
 ic-cdk = "0.19"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 wasmi = { version = "0.51.2", default-features = false }
-alloy-rlp = "0.3.12"

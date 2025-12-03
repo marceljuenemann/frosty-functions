@@ -99,6 +99,13 @@ export class Promise<T> {
   }
 }
 
+export class Done {
+  static DONE: Done = new Done();
+
+  private constructor() {}
+}
+export const DONE = Done.DONE;
+
 export interface Callback<T> {
   onFulfilled(value: T): void;
   onRejected(reason: Error): void;

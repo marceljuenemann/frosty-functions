@@ -1,4 +1,4 @@
-import { Promise } from "./promise";
+import { Promise, Done, DONE } from "./promise";
 import { SharedPromise } from "./internal/async";
 
 export enum EvmChain {
@@ -14,13 +14,13 @@ export enum EvmChain {
  * or zero if invoked from a non-EVM chain.
  */
 @lazy
-export const CALLING_CHAIN_ID: u64 = callingChainId();
+export const CALLING_CHAIN_ID: u64 = __evm_chain_id();
 
 @lazy
 export const CALLING_CHAIN_NAME: string = chainName(CALLING_CHAIN_ID);
 
 @external("❄️", "evm_chain_id")
-declare function callingChainId(): u64;
+declare function __evm_chain_id(): u64;
 
 /**
  * Returns a user-friendly name for the given EVM chain ID.
@@ -37,26 +37,57 @@ export function chainName(chainId: u64): string {
 }
 
 /**
- * Submits a transaction to the EVM chain that invoked this Frosty Function.
+ * An Ethereum Wallet that support signing arbitrary messages.
  * 
- * The callback will be routed through the Frosty Function bridge contract
- * and call into the contract that called `invokeFunction`, unless it was
- * called by an external account.
- * 
- * Both the amount specified and the gas costs for the transaction will be
- * deducted from the gas of the current Frosty Function execution.
- * 
- * @param data arbitrary calldata to include in the callback
- * @param amount amount of native currency to include in the callback
+ * Currently this class only implements the `forCaller()` method to
+ * retrieve the wallet for the caller that invoked the current Frosty Function.
  */
-// TODO: Support amounts larger than 2^64 (which is around 18 ETH).
-export function callback(data: ArrayBuffer, amount: u64): Promise<ArrayBuffer> {
-  // TODO: Actually pass data and amount.
-  // TODO: Have a reasonable return value.
-  let promise = new SharedPromise();
-  __evm_callback(promise.id, changetype<i32>(data), amount);
-  return promise;
+export class EthWallet {
+
+  // TODO: Move to Address class with a toString method
+  address(): string {
+    let buffer = new ArrayBuffer(42 * 2);  // 42 chars * 2 bytes / char
+    __evm_caller_wallet_address(changetype<i32>(buffer));
+    return String.UTF16.decode(buffer)
+  }
+
+  /**
+   * Signs the given message according to EIP-191
+   * 
+   * sign_hash(keccak256(0x19 <0x45 (E)> <thereum Signed Message:\n" + len(message)> <data to sign>))
+   * 
+   * Use String.UTF8.encode or String.UTF16.encode to convert a string to an ArrayBuffer.
+   */
+  signMessage(message: ArrayBuffer): Promise<Uint8Array> {
+    let promise = new SharedPromise();
+    __evm_caller_wallet_sign_message(changetype<i32>(message), promise.id);
+    return promise.map<Uint8Array>(buffer => Uint8Array.wrap(buffer));
+  }
+
+  /**
+   * Deposit Ethereum from the gas balance of the current Frosty Function execution.
+   * 
+   * Callers need to ensure that the Frosty Function is left with sufficient gas to
+   * not run out of gas during execution.
+   * 
+   * @returns A promise that resolves to the transaction hash as a Uint8Array.
+   */
+  depositGas(amount: u64): Promise<Uint8Array> {
+    let promise = new SharedPromise();
+    __evm_caller_wallet_deposit(amount, promise.id);
+    return promise.map<Uint8Array>(buffer => Uint8Array.wrap(buffer));
+  }
+
+  static forCaller(): EthWallet {
+    return new EthWallet()
+  }
 }
 
-@external("❄️", "evm_callback")
-declare function __evm_callback(promiseId: i32, dataPtr: i32, amount: u64): void;
+@external("❄️", "evm_caller_wallet_address")
+declare function __evm_caller_wallet_address(bufferPtr: i32): void;
+
+@external("❄️", "evm_caller_wallet_deposit")
+declare function __evm_caller_wallet_deposit(amount: u64, promiseId: i32): void;
+
+@external("❄️", "evm_caller_wallet_sign_message")
+declare function __evm_caller_wallet_sign_message(messagePtr: i32, promiseId: i32): void;

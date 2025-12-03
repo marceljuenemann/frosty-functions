@@ -77,6 +77,8 @@ export class FrostyFunctionService {
       listFiles: () => []
     }
     const options = [
+        // TODO: Add --memoryLimit (which could only be enforced with server-side compilation though).
+        // TODO: Investigate building a build cansiter running JavaScript.
         'runtime.ts',
         'function.ts',
         '--textFile', 'function.wat',
@@ -104,7 +106,7 @@ export class FrostyFunctionService {
   async simulate(wasm: Uint8Array): Promise<SimulationResult> {
     // TODO: Configurable request.
     const request: JobRequest = {
-      chain: { Evm: { ArbitrumSepolia: null } },
+      chain: { Evm: { Localhost: null } },
       transaction_hash: [],
       block_hash: [],
       block_number: [],

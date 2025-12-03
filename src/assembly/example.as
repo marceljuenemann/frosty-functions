@@ -1,19 +1,49 @@
 import { CALLDATA, JOB_ID } from "frosty";
-import * as evm from "frosty/evm";
+import { CALLING_CHAIN_NAME, CALLING_CHAIN_ID, EthWallet } from "frosty/evm";
 import { ArrayBufferPromise } from "frosty/promise";
 import { verifiableRandomness } from "frosty/random";
-import { toHexString } from "frosty/util";
+import { hex } from "frosty/util";
 
 export function main(): void {
-  console.log(`Invoked from ${evm.CALLING_CHAIN_NAME} (Chain ID: ${evm.CALLING_CHAIN_ID})`);
+  console.log(`Invoked from ${CALLING_CHAIN_NAME} (Chain ID: ${CALLING_CHAIN_ID})`);
+  console.log(`Calldata is: ${hex.encode(CALLDATA)}`);
   console.log(`Job ID is: ${JOB_ID}`);
-  console.log(`Calldata is: ${toHexString(CALLDATA)}`);
+
+  // Frosty automatically creates an Ethereum Wallet for the caller that invoked the
+  // function. The private key is split across the nodes of the Internet Computer and
+  // signs messages using Threshold ECDSA. Note that any Frosty Function can manage the
+  // the `forCaller()` wallet as long as that caller agreed to invoke the function.
+  const wallet = EthWallet.forCaller();
+//  console.log(`Caller address: ${CALLER_ADDRESS}`);
+  console.log(`Caller Frosty Wallet address: ${wallet.address()}`);
+
+  const randomness: ArrayBufferPromise = verifiableRandomness()
+  randomness.then((rand) => console.log(`Converted to Uint8Array: ${Uint8Array.wrap(rand)}`))
+
+  /*
+  // You can use wallet.signMessage to sign arbitrary EIP-191 messages.
+  wallet.signMessage(String.UTF8.encode("Hello, World!")).then((signature) => {
+    console.log(`Signature: ${hex.encode(signature)}`);
+  });
+
+  // You can transfer gas that you sent to the Frosty function into the wallet.
+  // However, make sure to leave enough gas for the function execution to complete!
+  // Note that this actually results in an Ethereum transaction with the usual gas
+  // costs, which will be deducted from your gas account. Alternatively, you can also
+  // send funds directly to wallet.address() outside of Frosty.
+  wallet.depositGas(10000).then((txHash) => {
+    console.log(`Transferred gas into Wallet.forCaller(). Tx hash: ${hex.encode(txHash)}`);
+  });
+  */
 
   //examples.randomness();
 
-  evm.callback(new ArrayBuffer(0), 1300).then((data: ArrayBuffer) => {
-    console.log(`EVM callback completed with data: ${toHexString(Uint8Array.wrap(data))}`);
-  });
+  /**
+  // TODO: Check for minimum amount
+  // TODO: Generate a random number
+  // TODO: Convert the random amount to WETH
+  */
+
 }
 
 
