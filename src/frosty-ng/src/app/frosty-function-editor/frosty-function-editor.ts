@@ -41,6 +41,18 @@ export class FrostyFunctionEditor {
     }
   }
 
+  async deploy() {
+    await this.compile();
+    if (!this.compilationResult?.success) return
+    // TODO: Handle errors
+    await this.frostyFunctionService.deploy({
+      binary: this.compilationResult.wasm,
+      source: this.code,
+      // TODO: Set to something meaningful.
+      compiler: "frosty-ng unstable alpha (client side)"
+    });
+  }
+
   private async compile() {
     this.reset();
     const result = await this.frostyFunctionService.compile(this.code);

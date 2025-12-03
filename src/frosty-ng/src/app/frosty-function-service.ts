@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { idlFactory } from 'declarations/frosty-functions-backend';
 import asc from "assemblyscript/asc";
-import { _SERVICE, ExecutionResult, JobRequest, Result_3 } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
+import { _SERVICE, ExecutionResult, JobRequest, FunctionDefinition } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
 import { Actor, ActorMethodMappedExtended, ActorSubclass, HttpAgent } from '@icp-sdk/core/agent';
 import { FROSTY_SOURCES, RUNTIME_SOURCE } from '../../../assembly/sources';
 
@@ -125,6 +125,12 @@ export class FrostyFunctionService {
       throw new Error(`${result.Err}`);
     }
     return { canisterId: CANISTER_ID, ...result.Ok };
+  }
+
+  async deploy(definition: FunctionDefinition): Promise<void> {
+    const actor = await this.actor();
+    const result = await actor.deploy(definition);
+    console.log("Deploy result:", result);
   }
 
   // TODO: Use ethers or similar library.

@@ -3,17 +3,18 @@ mod chain;
 mod evm;
 mod execution;
 mod job;
+mod repository;
 mod signer;
 mod state;
 
-use alloy::signers::Signer;
+use alloy::{signers::Signer};
 use candid::Nat;
 use chain::{Chain, EvmChain, ChainState, Address};
 use evm_rpc_types::Nat256;
 use job::Job;
 use state::{mutate_state};
 
-use crate::{execution::ExecutionResult, job::JobRequest, state::{init_state, read_state}};
+use crate::{execution::ExecutionResult, job::JobRequest, repository::{FunctionDefinition}, state::{init_state, read_state}};
 
 #[ic_cdk::update]
 async fn init() {
@@ -73,6 +74,12 @@ async fn get_queue(chain: Chain) -> Result<Vec<Nat>, String> {
     state::read_chain_state(&chain, |state| {
         Ok(state.job_queue.clone())
     })
+}
+
+/// Deploy a new function.
+#[ic_cdk::update]
+fn deploy(definition: FunctionDefinition) -> Result<(), String> {
+    crate::repository::deploy_function(definition)
 }
 
 // Enable Candid export
