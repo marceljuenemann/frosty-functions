@@ -14,7 +14,7 @@ use evm_rpc_types::Nat256;
 use job::Job;
 use state::{mutate_state};
 
-use crate::{execution::ExecutionResult, job::JobRequest, repository::{FunctionDefinition}, state::{init_state, read_state}};
+use crate::{execution::ExecutionResult, job::JobRequest, repository::{DeployResult, FunctionDefinition, FunctionId}, state::{init_state, read_state}};
 
 #[ic_cdk::update]
 async fn init() {
@@ -78,7 +78,7 @@ async fn get_queue(chain: Chain) -> Result<Vec<Nat>, String> {
 
 /// Deploy a new function.
 #[ic_cdk::update]
-fn deploy(definition: FunctionDefinition) -> Result<(), String> {
+fn deploy(definition: FunctionDefinition) -> DeployResult {
     crate::repository::deploy_function(definition)
 }
 

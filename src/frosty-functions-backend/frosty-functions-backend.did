@@ -5,6 +5,7 @@ type Commit = record {
   logs : vec LogEntry;
   timestamp : nat64;
 };
+type DeployResult = variant { Error : text; Duplicate : blob; Success : blob };
 type EvmChain = variant { ArbitrumSepolia; ArbitrumOne; Localhost };
 type ExecutionResult = record { commits : vec Commit };
 type FunctionDefinition = record {
@@ -33,7 +34,7 @@ type Result_3 = variant { Ok : ExecutionResult; Err : text };
 type Result_4 = variant { Ok : bool; Err : text };
 service : {
   // Deploy a new function.
-  deploy : (FunctionDefinition) -> (Result);
+  deploy : (FunctionDefinition) -> (DeployResult);
   evm_address : () -> (text) query;
   execute_job : (Chain, nat) -> (Result);
   get_job_info : (Chain, nat) -> (Result_1) query;
