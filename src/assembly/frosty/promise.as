@@ -63,7 +63,7 @@ export class Promise<T> {
    * Transforms the Promise value using a callback that has access to additional context.
    * Only invoked if the Promise is fulfilled successfully.
    */  
-  mapWith<U, C>(onSuccess: (value: T, context: C) => U, context: C): Promise<U> {
+  mapWith<C, U>(context: C, onSuccess: (context: C, value: T) => U): Promise<U> {
     let callback = new ClosureCallback<C, T, U>(context, onSuccess, null);
     this.addCallback(callback);
     return callback.nextPromise;
@@ -71,15 +71,15 @@ export class Promise<T> {
 
   map<U>(onSuccess : (value: T) => U): Promise<U> {
     // Reuse mapWith by passing the callback function as context.
-    return this.mapWith<U, (value: T) => U>((value, context) => context(value), onSuccess);
+    return this.mapWith<(value: T) => U, U>(onSuccess, (context, value) => context(value));
   }
 
   then(onSuccess: (value: T) => void): Promise<T> {
     // Reuse mapWith by passing the callback function as context.
-    this.mapWith<Done, (value: T) => void>((value, context) => {
-      context(value);
+    this.mapWith<(value: T) => void, Done>(onSuccess, (onSuccess, value) => {
+      onSuccess(value);
       return DONE;
-    }, onSuccess);
+    });
     return this;
   }
 
@@ -144,12 +144,12 @@ class ClosureCallback<C, T, U> implements Callback<T> {
 
   constructor(
     private readonly context: C,
-    private readonly onFulfilledHandler: (value: T, context: C) => U,
+    private readonly onFulfilledHandler: (context: C, value: T) => U,
     private readonly onRejectedHandler: ((reason: Error, context: C) => U) | null
   ) {}
 
   onFulfilled(value: T): void {
-    this.nextPromise.resolve(this.onFulfilledHandler(value, this.context));
+    this.nextPromise.resolve(this.onFulfilledHandler(this.context, value));
   }
 
   onRejected(reason: Error): void {
