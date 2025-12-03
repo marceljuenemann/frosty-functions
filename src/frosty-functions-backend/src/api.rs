@@ -114,7 +114,6 @@ fn evm_caller_wallet_deposit(mut caller: Caller<ExecutionContext>, amount: u64, 
         // TODO: Move the messy parts into a spawn function.
         Box::pin(async move {
             // TODO: Check gas balance first.
-            AsyncFnOnce
             let tx = transfer_funds(evm_chain, wallet.address(), amount).await?;
             // TODO: In order to add to the execution logs, we'll need to store the execution object
             // and context on the heap and manually delete it after execution. We'll need some
@@ -160,11 +159,8 @@ fn ic_raw_rand(mut caller: Caller<ExecutionContext>, promise_id: i32) -> Result<
         promise_id,
         "Retrieve verifiable randomness".to_string(),
         Box::pin(async {
-            Err("Not yet implemented".to_string())
-            /*
             ic_cdk::management_canister::raw_rand().await
                 .map_err(|e| format!("Failed to get raw_rand: {}", e))
-                */
         }) 
     );
     Ok(())

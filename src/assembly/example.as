@@ -12,11 +12,15 @@ export function main(): void {
   // Frosty automatically creates an Ethereum Wallet for the caller that invoked the
   // function. The private key is split across the nodes of the Internet Computer and
   // signs messages using Threshold ECDSA. Note that any Frosty Function can manage the
-  // the `forCaller()` wallet as long as that caller invokes the function.
+  // the `forCaller()` wallet as long as that caller agreed to invoke the function.
   const wallet = EthWallet.forCaller();
 //  console.log(`Caller address: ${CALLER_ADDRESS}`);
   console.log(`Caller Frosty Wallet address: ${wallet.address()}`);
 
+  const randomness: ArrayBufferPromise = verifiableRandomness()
+  randomness.then((rand) => console.log(`Converted to Uint8Array: ${Uint8Array.wrap(rand)}`))
+
+  /*
   // You can use wallet.signMessage to sign arbitrary EIP-191 messages.
   wallet.signMessage(String.UTF8.encode("Hello, World!")).then((signature) => {
     console.log(`Signature: ${hex.encode(signature)}`);
@@ -24,49 +28,21 @@ export function main(): void {
 
   // You can transfer gas that you sent to the Frosty function into the wallet.
   // However, make sure to leave enough gas for the function execution to complete!
-  // Note that this actually results in an Ethereum transaction with signnificant
-  // gas costs, depending on which chain you are operating on.  
+  // Note that this actually results in an Ethereum transaction with the usual gas
+  // costs, which will be deducted from your gas account. Alternatively, you can also
+  // send funds directly to wallet.address() outside of Frosty.
   wallet.depositGas(10000).then((txHash) => {
     console.log(`Transferred gas into Wallet.forCaller(). Tx hash: ${hex.encode(txHash)}`);
   });
-
+  */
 
   //examples.randomness();
 
-  /*
-  evm.callback(new ArrayBuffer(0), 1300).then((data: ArrayBuffer) => {
-    console.log(`EVM callback completed with data: ${toHexString(Uint8Array.wrap(data))}`);
-  });
-  */
-
-
-
   /**
-
-  const wallet = Wallet.forCaller();  // Synchronous, fetch before execution (only once).
-  console.log(`Caller address: ${CALLER_ADDRESS}`);
-  console.log(`Caller Frosty Wallet address: ${wallet.address()}`);
-
-  wallet.signMessage("Hello, World!").then((signature) => {
-    console.log(`Signed message: ${toHexString(signature)}`);
-  });
-
   // TODO: Check for minimum amount
   // TODO: Generate a random number
   // TODO: Convert the random amount to WETH
-
-  // Deposits are deducted from the gas of the current call. Make sure to
-  // leave enough gas for the function execution to complete! (More helper
-  // methods to manage gas will be added in the future.)
-  wallet.depositGwei(10000).then((wallet) => {
-
-
-  
-  
-  })
-
   */
-
 
 }
 
