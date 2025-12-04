@@ -32,7 +32,7 @@ Inspired by [icp-evm-coprocessor-starter](https://github.com/letmejustputthisher
   * Compile Bridge.sol
   * Connect to localhost using Custom - External Http Provider
   * Deploy contract with e.g.
-    * Owner 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 (anvil account[1])
+    * Owner 0xda824f554c42ecd28a74a037c70fa0b5bf447bb0 (current canister wallet)
     * MinPaymentWei 100
   * Invoke functions with e.g.
     * FunctionId "0x2f044fb7f581f6deeace9cd91d68500fcd439b3fe82729771c8b4385522ad576"

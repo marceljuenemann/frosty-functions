@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { FunctionState } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
-import { Contract, ethers, Network } from 'ethers';
+import { Contract, ethers, Network, Transaction, TransactionResponse } from 'ethers';
 import bridgeAbi from '../../../../contracts/Bride.abi.json';
 
 @Injectable({
@@ -8,40 +8,41 @@ import bridgeAbi from '../../../../contracts/Bride.abi.json';
 })
 export class SignerService {
 
-  // TODO: Pass calldata
-  // TODO: Set contract address (in config somewhere)
-  // TODO: Set chain ID
-
-   // TODO: configure
-  async runFrostyFunction(functionState: FunctionState) {
-    const chainId = 421614;
-
-
+  async invokeFrostyFunction(chainId: number, functionState: FunctionState, calldata: Uint8Array, amount: BigInt): Promise<TransactionResponse> {
     const provider = await this.providerForChain(chainId);
     const signer = await provider.getSigner();
     const address = await signer.getAddress();
-
-    console.log('Address:', address);
+    console.log("Invoking function from address: ", address);
 
     const contract = new Contract(
-      '0xe712A7e50abA019A6d225584583b09C4265B037B', // Arb Sepolia
+      this.bridgeAddress(chainId),
       bridgeAbi,
       signer
     );
 
     const tx = await contract['invokeFunction'](
       functionState.hash,
-      Uint8Array.from([]),  // TODO: calldata
+      calldata,
       {
-        value: 1234,
+        value: amount,
         chainId
       }
     );
     console.log('Transaction sent:', tx);
+    return tx;
+  }
 
-    const receipt = await tx.wait();
-    console.log('Receipt:', receipt);
-    return receipt.hash;
+  // TODO: Move into a config file.
+  private bridgeAddress(chainId: number): string {
+    switch (chainId) {
+      case 31337:
+        return '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+      case 42161:  // Arbitrum One
+      case 421614:  // Arbitrum Sepolia
+        return '0xe712A7e50abA019A6d225584583b09C4265B037B';
+      default:
+        throw new Error(`Unsupported chain ID: ${chainId}`);
+    }
   }
 
   async providerForChain(chainId: number): Promise<ethers.BrowserProvider> {

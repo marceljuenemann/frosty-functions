@@ -13,7 +13,15 @@ export class InvokeFunctionComponent {
 
   constructor(private signerService: SignerService) {}
 
-  runFunction() {
-    this.signerService.runFrostyFunction(this.function()); // TODO: add params
+  async runFunction() {
+    //const chainId = 31337;
+    const chainId = 421614;
+    const calldata = new Uint8Array([]);  // TODO: configure
+    const amount = BigInt(123456);
+
+    const tx = await this.signerService.invokeFrostyFunction(chainId, this.function(), calldata, amount);
+    const receipt = await tx.wait();
+    console.log('Receipt:', receipt);
+    // TODO: Update UI
   }
 }
