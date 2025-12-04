@@ -3,7 +3,7 @@
 
   @let function = this.functionId | async;
   @if (function) {
-    <div class="card">
+    <div class="card mb-4">
       <div class="card-header">
         Metadata
       </div>
@@ -29,6 +29,16 @@
         </dl>
       </div>
     </div>
+
+    <div class="card mb-4">
+      <div class="card-header">
+        Run Function
+      </div>
+      <div class="card-body">
+        <app-invoke-function [function]="function"></app-invoke-function>
+      </div>
+    </div>
+
   } @else {
     <div class="alert alert-warning" role="alert">
       Error 404: Function not deployed.

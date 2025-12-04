@@ -5,11 +5,13 @@ import { map, Observable, switchMap } from 'rxjs';
 import { FunctionDefinition, FunctionState } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
 import { FrostyFunctionService } from '../frosty-function-service';
 import { decodeHex, encodeBase64, encodeHex, formatTimestamp } from '../util';
+import { App } from '../app';
+import { InvokeFunctionComponent } from '../invoke-function/invoke-function';
 
 @Component({
   selector: 'app-function-overview',
   standalone: true,
-  imports: [CommonModule, AsyncPipe],
+  imports: [InvokeFunctionComponent, CommonModule, AsyncPipe],
   templateUrl: './function-overview.html',
   styleUrls: ['./function-overview.scss']
 })
