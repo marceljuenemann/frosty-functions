@@ -1,30 +1,60 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { FunctionState } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
-
-import { ethers } from 'ethers';
+import { Contract, ethers, Network } from 'ethers';
+import bridgeAbi from '../../../../contracts/Bride.abi.json';
 
 @Injectable({
   providedIn: 'root',
 })
 export class SignerService {
-  private provider: ethers.BrowserProvider | null = null;
-  private signer: ethers.Signer | null = null;
 
+  // TODO: Pass calldata
+  // TODO: Set contract address (in config somewhere)
+  // TODO: Set chain ID
+
+   // TODO: configure
   async runFrostyFunction(functionState: FunctionState) {
-    // TODO: Implement the function invocation logic
-    this.getProvider();
+    const chainId = 421614;
 
+
+    const provider = await this.providerForChain(chainId);
+    const signer = await provider.getSigner();
+    const address = await signer.getAddress();
+
+    console.log('Address:', address);
+
+    const contract = new Contract(
+      '0xe712A7e50abA019A6d225584583b09C4265B037B', // Arb Sepolia
+      bridgeAbi,
+      signer
+    );
+
+    const tx = await contract['invokeFunction'](
+      functionState.hash,
+      Uint8Array.from([]),  // TODO: calldata
+      {
+        value: 1234,
+        chainId
+      }
+    );
+    console.log('Transaction sent:', tx);
+
+    const receipt = await tx.wait();
+    console.log('Receipt:', receipt);
+    return receipt.hash;
   }
 
-  async getProvider(): Promise<ethers.BrowserProvider> {
-    if (this.provider) return this.provider;
+  async providerForChain(chainId: number): Promise<ethers.BrowserProvider> {
     if ((window as any).ethereum == null) throw new Error("MetaMask not installed");
-    return new ethers.BrowserProvider((window as any).ethereum);
-  }
+    const provider =  new ethers.BrowserProvider((window as any).ethereum);
+    await provider.send('wallet_switchEthereumChain', [{
+      chainId: '0x' + Number(chainId).toString(16)
+    }]);
 
-  async getSigner(): Promise<ethers.Signer> {
-    if (this.signer) return this.signer;
-    const provider = await this.getProvider();
-    return provider.getSigner();
+    const network = await provider.getNetwork();
+    if (network.chainId !== BigInt(chainId)) {
+      throw new Error(`Connected to wrong network: ${network.chainId}, expected ${chainId}`);
+    }
+    return provider;
   }
 }
