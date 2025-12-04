@@ -5,6 +5,7 @@ mod execution;
 mod job;
 mod repository;
 mod signer;
+mod stable;
 mod state;
 
 use alloy::{signers::Signer};
@@ -14,7 +15,7 @@ use evm_rpc_types::Nat256;
 use job::Job;
 use state::{mutate_state};
 
-use crate::{execution::ExecutionResult, job::JobRequest, repository::{DeployResult, FunctionDefinition, FunctionId}, state::{init_state, read_state}};
+use crate::{execution::ExecutionResult, job::JobRequest, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, state::{init_state, read_state}};
 
 #[ic_cdk::update]
 async fn init() {
@@ -80,6 +81,12 @@ async fn get_queue(chain: Chain) -> Result<Vec<Nat>, String> {
 #[ic_cdk::update]
 fn deploy(definition: FunctionDefinition) -> DeployResult {
     crate::repository::deploy_function(definition)
+}
+
+/// Retrieve function definition and state by its ID.
+#[ic_cdk::query]
+fn function_definition(id: FunctionId) -> Option<FunctionState> {
+    crate::stable::get_function(id)
 }
 
 // Enable Candid export

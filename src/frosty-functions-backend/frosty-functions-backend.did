@@ -13,6 +13,12 @@ type FunctionDefinition = record {
   compiler : text;
   binary : blob;
 };
+type FunctionState = record {
+  hash : blob;
+  deployed_at : nat64;
+  is_verified : bool;
+  definition : FunctionDefinition;
+};
 type Job = record { request : JobRequest };
 type JobRequest = record {
   transaction_hash : opt text;
@@ -37,6 +43,8 @@ service : {
   deploy : (FunctionDefinition) -> (DeployResult);
   evm_address : () -> (text) query;
   execute_job : (Chain, nat) -> (Result);
+  // Retrieve function definition and state by its ID.
+  function_definition : (blob) -> (opt FunctionState) query;
   get_job_info : (Chain, nat) -> (Result_1) query;
   // Returns IDs of jobs currently in the queue for processing.
   get_queue : (Chain) -> (Result_2) query;
