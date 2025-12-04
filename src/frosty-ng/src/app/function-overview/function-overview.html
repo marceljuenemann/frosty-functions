@@ -1,0 +1,32 @@
+<div class="container mt-4">
+  <h1 class="mb-4">Frosty Function</h1>
+
+  @let function = this.functionId | async;
+
+  <div class="card">
+    <div class="card-header">
+      Metadata
+    </div>
+    <div class="card-body">
+      <dl class="row">
+        <dt class="col-sm-3">Canister</dt>
+        <dd class="col-sm-9">{{ function }}</dd>
+
+        <dt class="col-sm-3">WASM Hash (base64)</dt>
+        <dd class="col-sm-9">{{ function }}</dd>
+
+        <dt class="col-sm-3">WASM Hash (hex)</dt>
+        <dd class="col-sm-9">{{ function }}</dd>
+
+        <dt class="col-sm-3">WASM Binary</dt>
+        <dd class="col-sm-9">TODO: Downlaod</dd>
+
+        <dt class="col-sm-3">Source Code</dt>
+        <dd class="col-sm-9">TODO: Downlaod</dd>
+
+        <dt class="col-sm-3">Deployed at</dt>
+        <dd class="col-sm-9">{{ function }}</dd>
+      </dl>
+    </div>
+  </div>
+</div>
