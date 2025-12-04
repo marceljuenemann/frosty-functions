@@ -2,7 +2,7 @@ use alloy::primitives::{FixedBytes, keccak256};
 use candid::{CandidType};
 use serde::Deserialize;
 
-use crate::stable::store_function;
+use crate::stable::{get_function, store_function};
 
 pub type FunctionId = Vec<u8>; // Keccak256 hash (32 bytes) of the function binary.
 
@@ -29,22 +29,19 @@ pub enum DeployResult {
 }
 
 pub fn deploy_function(definition: FunctionDefinition) -> DeployResult {
-    // For now, just print the function definition details.
-    // TODO: Return duplicate.
-    ic_cdk::println!("Deploying function:");
-    ic_cdk::println!("Source: {}", definition.source.len());
-    ic_cdk::println!("Compiler: {}", definition.compiler);
-    ic_cdk::println!("Binary size: {} bytes", definition.binary.len());
+    let id = keccak256(&definition.binary).to_vec();
+    if get_function(id.clone()).is_some() {
+        return DeployResult::Duplicate(id);
+    }
 
-    let hash = keccak256(&definition.binary);
-    ic_cdk::println!("Binary hash: 0x{}", hex::encode(hash));
+    // TODO: Run a simulation to verify integrity before storing.
 
-    store_function(hash.to_vec(), FunctionState {
+    store_function(id.clone(), FunctionState {
         definition,
-        hash: hash.to_vec(),
+        hash: id.clone(),
         deployed_at: ic_cdk::api::time(),
         is_verified: false,
     });
 
-    DeployResult::Success(hash.to_vec())
+    DeployResult::Success(id)
 }

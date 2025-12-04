@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
 import { idlFactory } from 'declarations/frosty-functions-backend';
 import asc from "assemblyscript/asc";
-import { _SERVICE, ExecutionResult, JobRequest, FunctionDefinition, DeployResult } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
+import { _SERVICE, ExecutionResult, JobRequest, FunctionDefinition, DeployResult, FunctionState } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
 import { Actor, ActorMethodMappedExtended, ActorSubclass, HttpAgent } from '@icp-sdk/core/agent';
 import { FROSTY_SOURCES, RUNTIME_SOURCE } from '../../../assembly/sources';
+import { decodeHex, encodeBase64, encodeHex } from './util';
 
 export type CompilationResult = {
   success: true
@@ -115,7 +116,7 @@ export class FrostyFunctionService {
       caller: { EvmAddress: '0x0000000000000000000000000000000000000000' },
       function_hash: new Uint8Array(32),
       on_chain_id: [BigInt(42)],
-      data: this.parseHex("0xdeadbeef"),
+      data: decodeHex("0xdeadbeef"),
       gas_payment: BigInt(0),
     };
 
@@ -134,30 +135,18 @@ export class FrostyFunctionService {
     if ('Err' in result) {
       return { error: `${result.Err}` };
     } else if ('Duplicate' in result) {
-      return { hash: this.encodeBase64(result.Duplicate as Uint8Array), duplicate: true };
+      return { hash: encodeHex(result.Duplicate as Uint8Array), duplicate: true };
     } else if ('Success' in result) {
-      return { hash: this.encodeBase64(result.Success as Uint8Array), duplicate: false };
+      return { hash: encodeHex(result.Success as Uint8Array), duplicate: false };
     } else {
       throw new Error("Unknown deploy result");
     }
   }
 
-  // TODO: Use ethers or similar library.
-  private parseHex(hex: string): Uint8Array {
-    const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex;
-    const padded = cleanHex.length % 2 ? '0' + cleanHex : cleanHex;
-    return new Uint8Array(
-      padded.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))
-    );
+  async getFunctionDefinition(functionId: Uint8Array): Promise<FunctionState | null> {
+    // TODO: Use a private method for this await nonesense :D
+    const result = await (await (await this.actor()).function_definition(functionId)).result;
+    return result.length ? result[0] : null;
   }
 
-  private encodeHex(bytes: Uint8Array): string {
-    return bytes.reduce((acc, cur) => acc + cur.toString(16).padStart(2, "0"), "0x")
-  }
-
-  private encodeBase64(bytes: Uint8Array): string {
-    // TODO: toBase64 was only introduced in 2025, so need to set target
-    return (bytes as any).toBase64({alphabet: "base64url"});
-    // return btoa(Array.from(bytes, (byte) => String.fromCodePoint(byte)).join(""))
-  }
 }

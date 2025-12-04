@@ -13,7 +13,7 @@
     <div class="card-body p-0">
       <div class="log-container">
         <div class="log-timestamp fst-italic mb-2">
-          Transaction time: {{ timestampToDate(commit.timestamp) }},
+          Transaction time: {{ formatTimestamp(commit.timestamp) }},
           {{ commit.logs.length }} log entries
         </div>
 

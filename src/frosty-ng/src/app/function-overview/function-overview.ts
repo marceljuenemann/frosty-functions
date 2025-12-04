@@ -1,8 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { AsyncPipe, CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
-import { map, Observable } from 'rxjs';
-import { FunctionDefinition } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
+import { map, Observable, switchMap } from 'rxjs';
+import { FunctionDefinition, FunctionState } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
+import { FrostyFunctionService } from '../frosty-function-service';
+import { decodeHex, encodeBase64, encodeHex, formatTimestamp } from '../util';
 
 @Component({
   selector: 'app-function-overview',
@@ -12,12 +14,15 @@ import { FunctionDefinition } from 'declarations/frosty-functions-backend/frosty
   styleUrls: ['./function-overview.scss']
 })
 export class FunctionOverviewComponent {
-  functionId: Observable<string>
+  functionId: Observable<FunctionState | null>
 
-  constructor(private route: ActivatedRoute) {
+  constructor(private route: ActivatedRoute, private service: FrostyFunctionService) {
     this.functionId = this.route.paramMap.pipe(
-      map(params => params.get("id")!),
+      map(params => decodeHex(params.get("id")!)),
+      switchMap(id => this.service.getFunctionDefinition(id))
     );
-
   }
+
+  formatTimestamp = formatTimestamp
+  encodeHex = encodeHex;
 }

@@ -61,13 +61,16 @@
           <div class="alert alert-danger" role="alert">
             <div><b>Deployment Error:</b> {{ deployment.error }}</div>
           </div>
-        } @else if (deployment.duplicate) {
-          <div class="alert alert-success" role="alert">
-            <div><b>Deployment with same hash already existed.</b> View {{ deployment.hash }} to run</div>
-          </div>
         } @else {
           <div class="alert alert-success" role="alert">
-            <div><b>Deployment completed.</b> View {{ deployment.hash }} to run</div>
+            <div>
+              @if (deployment.duplicate) {
+                <b>Deployment with same hash already exists.</b>
+              } @else {
+                <b>Deployment completed.</b>
+              }
+              View <a href="/functions/{{ deployment.hash }}" target="_blank">{{ deployment.hash }}</a> to run
+            </div>
           </div>
         }
       }
