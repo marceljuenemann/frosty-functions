@@ -47,6 +47,30 @@
           <app-log-viewer [commits]="sim.result.commits"></app-log-viewer>
         }
       }
+
+      <!-- Deployment -->
+      @if (this.deploying()) {
+        <div class="alert alert-info" role="alert">
+          <div><b>Deploying...</b></div>
+        </div>
+      }
+
+      @let deployment = this.deployment();
+      @if (deployment) {
+        @if (deployment.error) {
+          <div class="alert alert-danger" role="alert">
+            <div><b>Deployment Error:</b> {{ deployment.error }}</div>
+          </div>
+        } @else if (deployment.duplicate) {
+          <div class="alert alert-success" role="alert">
+            <div><b>Deployment with same hash already existed.</b> View {{ deployment.hash }} to run</div>
+          </div>
+        } @else {
+          <div class="alert alert-success" role="alert">
+            <div><b>Deployment completed.</b> View {{ deployment.hash }} to run</div>
+          </div>
+        }
+      }
     }
   }
 </div>

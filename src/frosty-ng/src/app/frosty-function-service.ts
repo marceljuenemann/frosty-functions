@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { idlFactory } from 'declarations/frosty-functions-backend';
 import asc from "assemblyscript/asc";
-import { _SERVICE, ExecutionResult, JobRequest, FunctionDefinition } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
+import { _SERVICE, ExecutionResult, JobRequest, FunctionDefinition, DeployResult } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
 import { Actor, ActorMethodMappedExtended, ActorSubclass, HttpAgent } from '@icp-sdk/core/agent';
 import { FROSTY_SOURCES, RUNTIME_SOURCE } from '../../../assembly/sources';
 
@@ -19,6 +19,8 @@ export type CompilationResult = {
 export interface SimulationResult extends ExecutionResult {
   canisterId: string
 }
+
+export type DeploymentResult = {hash?: string, duplicate?: boolean, error?: string};
 
 const CANISTER_ID = "uxrrr-q7777-77774-qaaaq-cai";  // Localhost
 // const CANISTER_ID = "n6va3-cyaaa-aaaao-qk6pq-cai";  // Production
@@ -127,10 +129,17 @@ export class FrostyFunctionService {
     return { canisterId: CANISTER_ID, ...result.Ok };
   }
 
-  async deploy(definition: FunctionDefinition): Promise<void> {
-    const actor = await this.actor();
-    const result = await actor.deploy(definition);
-    console.log("Deploy result:", result);
+  async deploy(definition: FunctionDefinition): Promise<DeploymentResult> {
+    const result = await (await (await this.actor()).deploy(definition)).result;
+    if ('Err' in result) {
+      return { error: `${result.Err}` };
+    } else if ('Duplicate' in result) {
+      return { hash: this.encodeBase64(result.Duplicate as Uint8Array), duplicate: true };
+    } else if ('Success' in result) {
+      return { hash: this.encodeBase64(result.Success as Uint8Array), duplicate: false };
+    } else {
+      throw new Error("Unknown deploy result");
+    }
   }
 
   // TODO: Use ethers or similar library.
@@ -140,5 +149,15 @@ export class FrostyFunctionService {
     return new Uint8Array(
       padded.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))
     );
+  }
+
+  private encodeHex(bytes: Uint8Array): string {
+    return bytes.reduce((acc, cur) => acc + cur.toString(16).padStart(2, "0"), "0x")
+  }
+
+  private encodeBase64(bytes: Uint8Array): string {
+    // TODO: toBase64 was only introduced in 2025, so need to set target
+    return (bytes as any).toBase64({alphabet: "base64url"});
+    // return btoa(Array.from(bytes, (byte) => String.fromCodePoint(byte)).join(""))
   }
 }

@@ -1,6 +1,6 @@
 import { Component, HostListener, signal } from '@angular/core';
 import { MonacoEditor } from '../monaco-editor/monaco-editor';
-import { CompilationResult, FrostyFunctionService, SimulationResult } from '../frosty-function-service';
+import { CompilationResult, DeploymentResult, FrostyFunctionService, SimulationResult } from '../frosty-function-service';
 import { LogViewer } from '../log-viewer/log-viewer';
 import exampleCode from '../../../../assembly/example.as'
 
@@ -24,6 +24,8 @@ export class FrostyFunctionEditor {
   wasmUrl: string | null = null
 
   simulation = signal<SimulationState | null>(null)
+  deployment = signal<DeploymentResult | null>(null)
+  deploying = signal<boolean>(false);
 
   constructor(private frostyFunctionService: FrostyFunctionService) {}
 
@@ -44,13 +46,14 @@ export class FrostyFunctionEditor {
   async deploy() {
     await this.compile();
     if (!this.compilationResult?.success) return
-    // TODO: Handle errors
-    await this.frostyFunctionService.deploy({
+    this.deploying.set(true);
+    this.deployment.set(await this.frostyFunctionService.deploy({
       binary: this.compilationResult.wasm,
       source: this.code,
       // TODO: Set to something meaningful.
       compiler: "frosty-ng unstable alpha (client side)"
-    });
+    }));
+    this.deploying.set(false);
   }
 
   private async compile() {
@@ -74,6 +77,8 @@ export class FrostyFunctionEditor {
       this.wasmUrl = null;
     }
     this.simulation.set(null);
+    this.deployment.set(null);
+    this.deploying.set(false);
   }
 
   @HostListener('window:keydown', ['$event'])
