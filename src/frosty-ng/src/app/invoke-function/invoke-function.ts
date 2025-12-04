@@ -1,5 +1,6 @@
 import { Component, input } from '@angular/core';
 import { FunctionState } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
+import { SignerService } from '../signer';
 
 @Component({
   selector: 'app-invoke-function',
@@ -10,7 +11,9 @@ import { FunctionState } from 'declarations/frosty-functions-backend/frosty-func
 export class InvokeFunctionComponent {
   function = input.required<FunctionState>();
 
+  constructor(private signerService: SignerService) {}
+
   runFunction() {
-    console.log("Running function:", this.function());
+    this.signerService.runFrostyFunction(this.function()); // TODO: add params
   }
 }
