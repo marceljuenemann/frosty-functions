@@ -26,7 +26,7 @@ type JobRequest = record {
   data : blob;
   chain : Chain;
   on_chain_id : opt nat;
-  block_number : opt nat;
+  block_number : opt nat64;
   function_hash : blob;
   gas_payment : nat;
   caller : Address;
@@ -36,8 +36,9 @@ type LogType = variant { System; Default };
 type Result = variant { Ok; Err : text };
 type Result_1 = variant { Ok : Job; Err : text };
 type Result_2 = variant { Ok : vec nat; Err : text };
-type Result_3 = variant { Ok : ExecutionResult; Err : text };
-type Result_4 = variant { Ok : bool; Err : text };
+type Result_3 = variant { Ok : vec nat; Err : text };
+type Result_4 = variant { Ok : ExecutionResult; Err : text };
+type Result_5 = variant { Ok : bool; Err : text };
 service : {
   // Deploy a new function.
   deploy : (FunctionDefinition) -> (DeployResult);
@@ -48,10 +49,17 @@ service : {
   get_job_info : (Chain, nat) -> (Result_1) query;
   // Returns IDs of jobs currently in the queue for processing.
   get_queue : (Chain) -> (Result_2) query;
+  // Looks for jobs in the specified block on the given chain.
+  // TODO: Currently this call is exposed to the public and invoked from the frontend.
+  // This is problematic as the call incurs costs the RPC and could be used to drain cycles.
+  // In the future we could require addition of cycles to the call that are refunded only
+  // if new jobs were found in the block. We should also provide an (off chain?) indexer to
+  // watch for new blocks and call this method automatically.
+  index_block : (Chain, nat64) -> (Result_3);
   init : () -> ();
-  simulate_execution : (JobRequest, blob) -> (Result_3) query;
+  simulate_execution : (JobRequest, blob) -> (Result_4) query;
   // Fetches new jobs from the specified chain.
   // Returns Ok(true) if new jobs were synced.
-  sync_chain : (Chain) -> (Result_4);
-  temp_simulate_execution : (JobRequest, blob) -> (Result_3);
+  sync_chain : (Chain) -> (Result_5);
+  temp_simulate_execution : (JobRequest, blob) -> (Result_4);
 }

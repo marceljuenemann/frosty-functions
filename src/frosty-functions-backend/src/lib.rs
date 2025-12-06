@@ -36,6 +36,19 @@ fn evm_address() -> String {
     read_state(|state| state.main_signer.address().to_string())
 }
 
+/// Looks for jobs in the specified block on the given chain.
+/// TODO: Currently this call is exposed to the public and invoked from the frontend.
+/// This is problematic as the call incurs costs the RPC and could be used to drain cycles.
+/// In the future we could require addition of cycles to the call that are refunded only
+/// if new jobs were found in the block. We should also provide an (off chain?) indexer to
+/// watch for new blocks and call this method automatically.  
+#[ic_cdk::update]
+async fn index_block(chain: Chain, block_number: u64) -> Result<Vec<Nat256>, String> {
+    match &chain {
+        Chain::Evm(evm_chain) => crate::evm::index_block(evm_chain, block_number).await
+    }
+}
+
 #[ic_cdk::query]
 fn get_job_info(chain: Chain, job_id: Nat256) -> Result<Job, String> {
     state::read_chain_state(&chain, |state| {

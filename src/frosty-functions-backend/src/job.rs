@@ -14,7 +14,7 @@ pub struct JobRequest {
     /// Block hash this log was found in
     pub block_hash: Option<Hex32>,
     /// Block number this log was found in
-    pub block_number: Option<Nat256>,
+    pub block_number: Option<u64>,
     /// Transaction hash that emitted this log
     pub transaction_hash: Option<Hex32>,
 

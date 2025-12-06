@@ -1,3 +1,4 @@
+use alloy::eips::BlockNumberOrTag;
 use alloy::network::TransactionBuilder;
 use alloy::network::EthereumWallet;
 use alloy::primitives::Address;
@@ -5,9 +6,12 @@ use alloy::primitives::TxHash;
 use alloy::primitives::U256;
 use alloy::providers::Provider;
 use alloy::providers::ProviderBuilder;
+use alloy::rpc::types::Filter;
 use alloy::rpc::types::TransactionRequest;
 use alloy::sol;
+use alloy::sol_types::SolEvent;
 use alloy::transports::icp::{L2MainnetService, RpcApi, RpcService};
+use evm_rpc_types::Nat256;
 
 use crate::chain::EvmChain;
 use crate::job::JobRequest;
@@ -24,6 +28,25 @@ sol! {
     "../../contracts/Bridge.sol"
 }
 
+pub async fn index_block(chain: &EvmChain, block_number: u64) -> Result<Vec<Nat256>, String> {
+    // TODO: Configure response size, use multiple providers etc.
+    let config = alloy::transports::icp::IcpConfig::new(rpc_service(&chain));
+    let provider = ProviderBuilder::new().on_icp(config);
+    let filter = Filter::new()
+        .address(bridge_address(chain))
+        .event(FrostyBridge::FunctionInvoked::SIGNATURE)
+        .from_block(BlockNumberOrTag::Number(block_number))
+        .to_block(BlockNumberOrTag::Number(block_number));
+
+    let logs = provider.get_logs(&filter).await
+        .map_err(|e| format!("Failed to fetch Bridge events: {}", e))?;
+    for log in logs.iter() {
+        ic_cdk::println!("Found Bridge event: {:?}", log);
+    }
+
+    Err("Not yet implemented".to_string())
+}
+
 /// Transfers funds from the canister's main EVM account to the specified address.
 /// The nonce logic assumes that all transactions suceed, so callers should ensure
 /// that enough gas is available on the account.
@@ -32,6 +55,7 @@ pub async fn transfer_funds(
     to_address: Address,
     amount: u64,
 ) -> Result<TxHash, String> {
+    // TODO: Configure response size to save on cycles.
     let wallet = EthereumWallet::from(read_state(|s| s.main_signer.clone()));
     let config = alloy::transports::icp::IcpConfig::new(rpc_service(&chain));
     let provider = ProviderBuilder::new()
@@ -56,140 +80,11 @@ pub async fn transfer_funds(
     Ok(transaction_result.tx_hash().clone())
 }
     
-
-// // TODO: Move to some init call.
-// async fn public_key(chain: EvmChain) -> Result<Vec<u8>, String> {
-//     let args = EcdsaPublicKeyArgs {
-//         canister_id: None,  // Current canister
-//         derivation_path: vec![],
-//         key_id: EcdsaKeyId {
-//             curve: EcdsaCurve::Secp256k1,
-//             name: public_key_id(chain)
-//         }
-//     };
-//     let response = ecdsa_public_key(&args)
-//         .await
-//         .map_err(|e| format!("ecdsa_public_key failed {}", e))?;
-//     Ok(response.public_key)  
-// }
-
-// fn public_key_to_address(pubkey_bytes: &[u8]) -> Address {
-//     use ethers_core::k256::elliptic_curve::sec1::ToEncodedPoint;
-//     use ethers_core::k256::PublicKey;
-
-//     let key =
-//         PublicKey::from_sec1_bytes(pubkey_bytes).expect("failed to parse the public key as SEC1");
-//     let point = key.to_encoded_point(false);
-//     // we re-encode the key to the decompressed representation.
-//     let point_bytes = point.as_bytes();
-//     assert_eq!(point_bytes[0], 0x04);
-
-//     let hash = keccak256(&point_bytes[1..]);
-
-//     Address::from_slice(&hash[12..32])
-// }
-
-// // TODO: Just use ethers and switcch to alloy later.
-// async fn cansiter_address(chain: EvmChain) -> Result<Address, String> {
-//     let pubkey = public_key(chain).await?;
-
-//     let pubkey = VerifyingKey::from_sec1_bytes(&pubkey)
-//         .map_err(|e| format!("Failed to parse public key: {}", e))?;
-//     let point = pubkey.to_encoded_point(false);
-//     // we re-encode the key to the decompressed representation.
-//     let point_bytes = point.as_bytes();
-//     assert_eq!(point_bytes[0], 0x04);
-
-//     let hash = keccak256(&point_bytes[1..]);
-//     //Ok(ethers_core::utils::to_checksum(&Address::from_slice(&hash[12..32]), None))
-//     Ok(Address::from_slice(&hash[12..32]))
-// //    Ok(Address::from_public_key(&pubkey))
-// }
-
-
-    /*
-    
-    let message = "Hello EVM!".to_string();
-    let signature = signer.sign_message(message.as_bytes()).await
-        .map_err(|e| format!("Failed to sign message: {}", e))?;
-    ic_cdk::println!("Signature for message '{}': {:?}", message, signature);
-    ic_cdk::println!("Address {}", signer.address());
-*/  
-
-
-//     let client = create_client(evm_chain.clone());
-
-//     let mut transaction = TransactionRequest::default()
-//         .from("0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9".parse().unwrap())
-//         .to(to_address.parse().map_err(|e| format!("Invalid to address: {}", e))?)
-//         .value(U256::from(amount))
-//         // TODO: Determine these automatically.
-//         .max_priority_fee_per_gas(42u128)
-//         .max_fee_per_gas(54u128)
-//         .gas_limit(21000u64)
-//         // TODO: Set input
-//         .nonce(0);  // TODO: Use transaction count for this job (assuming job_id field is part of bridge call)
-//     transaction.chain_id = Some(evm_chain_id(evm_chain.clone()));
-//     ic_cdk::println!("TransactionRequest: {:?}", transaction);
-
-//     let tx = transaction.build_1559()
-//         .map_err(|e| format!("Failed to build transaction: {:?}", e))?;
-//     ic_cdk::println!("Unsinged tx: {:?}", tx);
-
-//     let mut buf = vec![];
-//     tx.encode(&mut buf);
-//     ic_cdk::println!("Unsinged tx: {:?}", buf);
-
-
-//     /* 
-//     let address = cansiter_address(evm_chain).await?;
-//     ic_cdk::println!("Canister's Ethereum address: {:?}", address);
-// */
-
-//     let address = public_key_to_address(&public_key(evm_chain).await?);
-//     ic_cdk::println!("Canister's Ethereum address: {:?}", address);
-
-
-
-    // Continue here: https://internetcomputer.org/docs/building-apps/chain-fusion/ethereum/using-eth/eth-dev-workflow
-    // - Raw transaction bytes: https://alloy.rs/examples/transactions/encode_decode_eip1559
-    // - Get a key. Probably use ic_evm_util
-    // - Sign. See https://alloy.rs/examples/transactions/encode_decode_eip1559
-    
-
-
-
-   //  client.send_raw_transaction(transaction.into());
-
-
 /// Fetches requested jobs from the EVM chain.
 ///
 /// NOTE: This fetches jobs from unfinalized blocks that might be re-orged.
 pub async fn fetch_jobs(evm_chain: &EvmChain, contract_address: String, since_block: u64) -> Result<Vec<JobRequest>, String> {
     Err("Not yet implemented".to_string())
-
-    // let client = create_client(evm_chain.clone());
-    // let address_hex: Hex20 = contract_address.parse().map_err(|e| format!("Invalid address: {}", e))?;
-    // let mut filter = evm_rpc_types::GetLogsArgs::from(vec![address_hex]);
-    // filter.from_block = Some(BlockTag::Number(Nat256::from(since_block)));
-    // filter.to_block = Some(BlockTag::Latest);
-    // filter.to_block = Some(BlockTag::Number(Nat256::from(since_block + 499))); // TODO: Remove hardcoding
-
-    // // NOTE: Since we are fetching the latest block, inconsistent responses are more likely,
-    // // so using a 2 out of 3 consensus strategy seems important.
-    // match client.get_logs(filter).send().await {
-    //     evm_rpc_types::MultiRpcResult::Consistent(Ok(events)) => {
-    //         Err("Not yet implemented".to_string())
-    //         // TODO: Move to alloy types?
-    //         // return jobs_from_events(evm_chain, events);
-    //     }
-    //     evm_rpc_types::MultiRpcResult::Consistent(Err(err)) => {
-    //         return Err(format!("EVM RPC error: {:?}", err));
-    //     }
-    //     evm_rpc_types::MultiRpcResult::Inconsistent(_) => {
-    //         return Err("Inconsistent responses from EVM RPC providers".to_string());
-    //     }
-    // }
 }
 
 // fn jobs_from_events(chain: &EvmChain, events: Vec<LogEntry>) -> Result<Vec<JobRequest>, String> {
@@ -276,4 +171,13 @@ pub fn evm_chain_id(chain: EvmChain) -> u64 {
         EvmChain::ArbitrumSepolia => 421614,
         EvmChain::Localhost => 31337,
     }
+}
+
+// TODO: Move this into a config file. Maybe make it shareable with frontend as well?
+fn bridge_address(chain: &EvmChain) -> Address{
+    match chain {
+        EvmChain::ArbitrumOne => "0xe712A7e50abA019A6d225584583b09C4265B037B",
+        EvmChain::ArbitrumSepolia => "0xe712A7e50abA019A6d225584583b09C4265B037B",
+        EvmChain::Localhost => "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+    }.parse().unwrap()
 }
