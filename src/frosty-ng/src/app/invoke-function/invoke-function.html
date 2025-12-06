@@ -1,7 +1,46 @@
 <div class="mb-3">
 </div>
-<div>
+
+<div class="mb-3">
   <button class="btn btn-primary" (click)="runFunction()">
-    Run
+    💸 Run
   </button>
 </div>
+
+@if (this.transactionId() === 'pending') {
+  <div class="mb-3">
+    <div class="alert alert-info" role="alert">
+      <b>Submitting EVM transaction...</b>
+    </div>
+  </div>
+} @else if (this.transactionId()) {
+  <div class="mb-3">
+    <div class="alert alert-success" role="alert">
+      <b>Transaction submitted successfully.</b>
+      Transaction ID: <a href="{{ this.scannerUrl() }}/tx/{{ this.transactionId() }}" target="_blank">{{ this.transactionId() }}</a>
+    </div>
+  </div>
+}
+
+@if (this.blockNumber() === 'pending') {
+  <div class="mb-3">
+    <div class="alert alert-info" role="alert">
+      <b>Waiting for block inclusion...</b>
+    </div>
+  </div>
+} @else if (this.blockNumber()) {
+  <div class="mb-3">
+    <div class="alert alert-success" role="alert">
+      <b>Transaction included in block.</b>
+      Block number: <a href="{{ this.scannerUrl() }}/block/{{ this.blockNumber() }}" target="_blank">{{ this.blockNumber() }}</a>
+    </div>
+  </div>
+}
+
+@if (this.error()) {
+  <div class="mb-3">
+    <div class="alert alert-danger" role="alert">
+      <b>Error:</b> {{ this.error() }}
+    </div>
+  </div>
+}
