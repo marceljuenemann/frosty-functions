@@ -2,6 +2,7 @@ use candid::{CandidType, Decode, Encode, Nat};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap, Storable};
+use serde::Deserialize;
 use std::borrow::Cow;
 use std::cell::RefCell;
 
@@ -28,6 +29,8 @@ thread_local! {
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(1))),
         )
     );
+
+    // TODO: Store commits in a Log structure.
 }
 
 pub fn store_function(id: FunctionId, state: FunctionState) -> Option<FunctionState> {
@@ -52,7 +55,7 @@ pub fn create_job(request: JobRequest) -> bool {
 }
 
 /// Cross-chain Job ID.
-#[derive(Debug, Clone, CandidType, Ord, PartialOrd, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Clone, CandidType, Ord, PartialOrd, PartialEq, Eq)]
 struct JobKey {
     pub chain: Chain,
     pub on_chain_id: Nat,

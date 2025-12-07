@@ -1,6 +1,6 @@
 use alloy::signers::Signer;
 use wasmi::{Caller, Error, Func, Global, Linker, Memory, Mutability, Store, Val, errors::LinkerError};
-use crate::{Chain, chain::EvmChain, evm::transfer_funds, execution::{ExecutionContext, LogType}};
+use crate::{Chain, evm::transfer_funds, execution::{ExecutionContext}, job::LogType};
 
 /// The maximum length of data that can be passed to/from the guest.
 // TODO: Consider increasing if there is a use case.

@@ -1,10 +1,6 @@
 type Address = variant { EvmAddress : text };
 type Chain = variant { Evm : EvmChain };
-type Commit = record {
-  async_task : opt record { int32; text };
-  logs : vec LogEntry;
-  timestamp : nat64;
-};
+type Commit = record { title : text; logs : vec LogEntry; timestamp : nat64 };
 type DeployResult = variant { Error : text; Duplicate : blob; Success : blob };
 type EvmChain = variant { ArbitrumSepolia; ArbitrumOne; Localhost };
 type ExecutionResult = record { commits : vec Commit };
@@ -19,7 +15,12 @@ type FunctionState = record {
   is_verified : bool;
   definition : FunctionDefinition;
 };
-type Job = record { request : JobRequest };
+type Job = record {
+  status : JobStatus;
+  request : JobRequest;
+  created_at : nat64;
+  commit_ids : vec nat64;
+};
 type JobRequest = record {
   transaction_hash : opt text;
   block_hash : opt text;
@@ -31,35 +32,33 @@ type JobRequest = record {
   gas_payment : nat;
   caller : Address;
 };
+type JobStatus = variant {
+  Failed : text;
+  Executing;
+  Waiting;
+  Completed;
+  Pending;
+};
 type LogEntry = record { level : LogType; message : text };
 type LogType = variant { System; Default };
-type Result = variant { Ok; Err : text };
-type Result_1 = variant { Ok : Job; Err : text };
-type Result_2 = variant { Ok : vec nat; Err : text };
-type Result_3 = variant { Ok : vec nat; Err : text };
-type Result_4 = variant { Ok : ExecutionResult; Err : text };
-type Result_5 = variant { Ok : bool; Err : text };
+type Result = variant { Ok : Job; Err : text };
+type Result_1 = variant { Ok : vec JobRequest; Err : text };
+type Result_2 = variant { Ok : ExecutionResult; Err : text };
 service : {
   // Deploy a new function.
-  deploy : (FunctionDefinition) -> (DeployResult);
-  evm_address : () -> (text) query;
-  execute_job : (Chain, nat) -> (Result);
+  deploy_function : (FunctionDefinition) -> (DeployResult);
+  get_evm_address : () -> (text) query;
   // Retrieve function definition and state by its ID.
-  function_definition : (blob) -> (opt FunctionState) query;
-  get_job_info : (Chain, nat) -> (Result_1) query;
-  // Returns IDs of jobs currently in the queue for processing.
-  get_queue : (Chain) -> (Result_2) query;
+  get_function : (blob) -> (opt FunctionState) query;
+  get_job : (Chain, nat) -> (Result) query;
   // Looks for jobs in the specified block on the given chain.
   // TODO: Currently this call is exposed to the public and invoked from the frontend.
   // This is problematic as the call incurs costs the RPC and could be used to drain cycles.
   // In the future we could require addition of cycles to the call that are refunded only
   // if new jobs were found in the block. We should also provide an (off chain?) indexer to
   // watch for new blocks and call this method automatically.
-  index_block : (Chain, nat64) -> (Result_3);
+  index_block : (Chain, nat64) -> (Result_1);
   init : () -> ();
-  simulate_execution : (JobRequest, blob) -> (Result_4) query;
-  // Fetches new jobs from the specified chain.
-  // Returns Ok(true) if new jobs were synced.
-  sync_chain : (Chain) -> (Result_5);
-  temp_simulate_execution : (JobRequest, blob) -> (Result_4);
+  simulate_execution : (JobRequest, blob) -> (Result_2) query;
+  temp_simulate_execution : (JobRequest, blob) -> (Result_2);
 }

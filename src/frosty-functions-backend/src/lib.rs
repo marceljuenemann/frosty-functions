@@ -9,11 +9,9 @@ mod state;
 mod storage;
 
 use alloy::{signers::Signer};
-use candid::Nat;
-use chain::{Chain, EvmChain, ChainState, Address};
+use chain::{Chain};
 use evm_rpc_types::Nat256;
 use job::Job;
-use state::{mutate_state};
 
 use crate::{execution::ExecutionResult, job::JobRequest, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, state::{init_state, read_state}};
 
@@ -21,19 +19,28 @@ use crate::{execution::ExecutionResult, job::JobRequest, repository::{DeployResu
 async fn init() {
     // TODO: Restrict to controllers.
     init_state().await;
-    mutate_state(|state| {
-        // TODO: Make bridge addresses configurable.
-        let local_bridge_address: Address = Address::EvmAddress("0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9".parse().unwrap());
-        let bridge_address: Address = Address::EvmAddress("0xe712a7e50aba019a6d225584583b09c4265b037b".parse().unwrap());
-        state.chains.insert(Chain::Evm(EvmChain::ArbitrumOne), ChainState::new(bridge_address.clone()));
-        state.chains.insert(Chain::Evm(EvmChain::ArbitrumSepolia), ChainState::new(bridge_address.clone()));
-        state.chains.insert(Chain::Evm(EvmChain::Localhost), ChainState::new(local_bridge_address.clone()));
-    });
 }
 
 #[ic_cdk::query]
-fn evm_address() -> String {
+fn get_evm_address() -> String {
     read_state(|state| state.main_signer.address().to_string())
+}
+
+/// Retrieve function definition and state by its ID.
+#[ic_cdk::query]
+fn get_function(id: FunctionId) -> Option<FunctionState> {
+    crate::storage::get_function(id)
+}
+
+#[ic_cdk::query]
+fn get_job(chain: Chain, job_id: Nat256) -> Result<Job, String> {
+    Err("not implemented".to_string())
+}
+
+/// Deploy a new function.
+#[ic_cdk::update]
+fn deploy_function(definition: FunctionDefinition) -> DeployResult {
+    crate::repository::deploy_function(definition)
 }
 
 /// Looks for jobs in the specified block on the given chain.
@@ -43,19 +50,10 @@ fn evm_address() -> String {
 /// if new jobs were found in the block. We should also provide an (off chain?) indexer to
 /// watch for new blocks and call this method automatically.  
 #[ic_cdk::update]
-async fn index_block(chain: Chain, block_number: u64) -> Result<Vec<Nat256>, String> {
+async fn index_block(chain: Chain, block_number: u64) -> Result<Vec<JobRequest>, String> {
     match &chain {
         Chain::Evm(evm_chain) => Ok(crate::evm::index_block(evm_chain, block_number).await?)
     }
-}
-
-#[ic_cdk::query]
-fn get_job_info(chain: Chain, job_id: Nat256) -> Result<Job, String> {
-    state::read_chain_state(&chain, |state| {
-        state.jobs.get(&Nat::from(job_id.clone()))
-            .cloned()
-            .ok_or_else(|| format!("Job not found: {}", job_id))
-    })
 }
 
 #[ic_cdk::query]
@@ -68,38 +66,6 @@ fn simulate_execution(request: JobRequest, wasm: Vec<u8>) -> Result<ExecutionRes
 #[ic_cdk::update]
 async fn temp_simulate_execution(request: JobRequest, wasm: Vec<u8>) -> Result<ExecutionResult, String> {
     crate::execution::simulate_job(request, &wasm).await
-}
-
-#[ic_cdk::update]
-async fn execute_job(chain: Chain, job_id: Nat256) -> Result<(), String> {
-    crate::execution::execute_job(chain, job_id).await
-}
-
-/// Fetches new jobs from the specified chain.
-/// Returns Ok(true) if new jobs were synced.
-#[ic_cdk::update]
-async fn sync_chain(chain: Chain) -> Result<bool, String> {
-    crate::chain::sync_chain(&chain).await
-}
-
-/// Returns IDs of jobs currently in the queue for processing.
-#[ic_cdk::query]
-async fn get_queue(chain: Chain) -> Result<Vec<Nat>, String> {
-    state::read_chain_state(&chain, |state| {
-        Ok(state.job_queue.clone())
-    })
-}
-
-/// Deploy a new function.
-#[ic_cdk::update]
-fn deploy(definition: FunctionDefinition) -> DeployResult {
-    crate::repository::deploy_function(definition)
-}
-
-/// Retrieve function definition and state by its ID.
-#[ic_cdk::query]
-fn function_definition(id: FunctionId) -> Option<FunctionState> {
-    crate::storage::get_function(id)
 }
 
 // Enable Candid export

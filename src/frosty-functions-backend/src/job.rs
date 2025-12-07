@@ -7,7 +7,7 @@ use crate::{chain::{Address, Chain}};
 /// Request for executing a function. Currently these are created from EVM logs,
 /// but in the future they could also come from other sources such as other chains,
 /// recursive invocations etc.
-#[derive(Debug, Clone, CandidType, Serialize, Deserialize)]
+#[derive(Debug, Clone, CandidType, Deserialize)]
 pub struct JobRequest {
     /// Chain that this job request originates from.
     pub chain: Chain,
@@ -32,7 +32,7 @@ pub struct JobRequest {
 }
 
 /// Job with metadata and execution state.
-#[derive(Debug, Clone, CandidType, Serialize, Deserialize)]
+#[derive(Debug, Clone, CandidType, Deserialize)]
 pub struct Job {
     // The request that created this job.
     pub request: JobRequest,

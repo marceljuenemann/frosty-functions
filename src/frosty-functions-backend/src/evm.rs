@@ -27,7 +27,7 @@ sol! {
 }
 
 /// Creates jobs from log events in the specified block.
-pub async fn index_block(chain: &EvmChain, block_number: u64) -> Result<Vec<Nat256>, String> {
+pub async fn index_block(chain: &EvmChain, block_number: u64) -> Result<Vec<JobRequest>, String> {
     // TODO: Configure response size, use multiple providers etc.
     let config = alloy::transports::icp::IcpConfig::new(rpc_service(&chain));
     let provider = ProviderBuilder::new().on_icp(config);
@@ -51,8 +51,6 @@ pub async fn index_block(chain: &EvmChain, block_number: u64) -> Result<Vec<Nat2
         })
         // Create job in storage (if it doesn't exist yet).
         .filter(|request| create_job(request.clone()))
-        // Return on_chain_id of created jobs.
-        .map(|request| request.on_chain_id.unwrap())
         .collect();
     Ok(job_ids)
 }
@@ -108,14 +106,6 @@ pub async fn transfer_funds(
     let transaction_result = provider.send_transaction(tx.clone()).await
         .map_err(|e| format!("Failed to send transaction: {}", e))?;
     Ok(transaction_result.tx_hash().clone())
-}
-
-/// Fetches requested jobs from the EVM chain.
-///
-/// NOTE: This fetches jobs from unfinalized blocks that might be re-orged.
-pub async fn fetch_jobs(evm_chain: &EvmChain, contract_address: String, since_block: u64) -> Result<Vec<JobRequest>, String> {
-    // TODO: Delete.
-    Err("Not yet implemented".to_string())
 }
 
 fn rpc_service(evm_chain: &EvmChain) -> RpcService {
