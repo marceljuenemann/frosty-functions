@@ -54,6 +54,14 @@ pub fn create_job(request: JobRequest) -> bool {
     })
 }
 
+pub fn get_job(chain: &Chain, job_id: Nat) -> Option<Job> {
+    let key = JobKey {
+        chain: chain.clone(),
+        on_chain_id: job_id,
+    };
+    JOBS.with(|p| p.borrow_mut().get(&key))
+}
+
 /// Cross-chain Job ID.
 #[derive(Debug, Deserialize, Clone, CandidType, Ord, PartialOrd, PartialEq, Eq)]
 struct JobKey {

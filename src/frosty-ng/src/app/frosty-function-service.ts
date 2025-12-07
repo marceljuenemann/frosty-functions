@@ -1,7 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Signal, signal } from '@angular/core';
 import { idlFactory } from 'declarations/frosty-functions-backend';
 import asc from "assemblyscript/asc";
-import { _SERVICE, ExecutionResult, JobRequest, FunctionDefinition, DeployResult, FunctionState, Chain, Result_1 } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
+import { _SERVICE, ExecutionResult, JobRequest, FunctionDefinition, DeployResult, FunctionState, Chain, Result_1, Result, Job } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
 import { Actor, ActorMethodMappedExtended, ActorSubclass, HttpAgent } from '@icp-sdk/core/agent';
 import { FROSTY_SOURCES, RUNTIME_SOURCE } from '../../../assembly/sources';
 import { decodeHex, encodeBase64, encodeHex } from './util';
@@ -156,8 +156,8 @@ export class FrostyFunctionService {
    */
   async indexTransaction(chain: Chain, receipt: TransactionReceipt): Promise<JobRequest> {
     // TODO: Why is type not inferred correctly here?
-    const response: {result: Promise<Result_1>} = await (await this.actor()).index_block(chain, receipt.blockNumber) as any;
-    const result: Result_1 = await response.result;
+    const response: {result: Promise<Result>} = await (await this.actor()).index_block(chain, receipt.blockNumber) as any;
+    const result: Result = await response.result;
     if ('Err' in result) throw new Error(`${result.Err}`);
 
     // There might be JobRequests for other transactions in the same block; filter them out
@@ -166,6 +166,17 @@ export class FrostyFunctionService {
       throw new Error(`Expected exactly one JobRequest for transaction ${receipt.hash}, got ${jobRequests.length}`);
     }
     return jobRequests[0];
+  }
+
+  // TODO: Implement watchJob that watches until job is complete.
+  // TODO: Implement getCommit
+  async getJob(chain: Chain, jobId: number): Promise<Job | null> {
+    // TODO: Why is type not inferred correctly here?
+    const response: any = await (await this.actor()).get_job(chain, jobId);
+    const result: Job[] = await response.result;
+    if (!result.length) return null;
+    const job = result[0];
+    return job;
   }
 
   // TODO: Move into a config file, or fetch from the backend.

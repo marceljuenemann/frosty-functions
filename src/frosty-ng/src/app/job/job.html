@@ -1,0 +1,37 @@
+<div class="container mt-4">
+  <h1 class="mb-4">Job Details</h1>
+
+@let job = this.job();
+@if (job === 'loading') {
+  <div class="alert alert-info" role="alert">
+    Loading job details...
+  </div>
+} @else if (job === 'notfound') {
+  <div class="alert alert-warning" role="alert">
+    Error: Job not found.
+  </div>
+} @else {
+  <div class="card mb-4">
+    <div class="card-header">
+      Metadata
+    </div>
+    <div class="card-body">
+      <dl class="row">
+        <dt class="col-sm-3">Canister</dt>
+        <dd class="col-sm-9">TODO</dd>
+
+        <dt class="col-sm-3">WASM Binary</dt>
+        <dd class="col-sm-9">TODO: Downlaod</dd>
+
+        <dt class="col-sm-3">Source Code</dt>
+        <dd class="col-sm-9">TODO: Downlaod</dd>
+
+        <!--
+        <dt class="col-sm-3">Deployed at</dt>
+        <dd class="col-sm-9">{{ formatTimestamp(function.deployed_at) }}</dd>
+        -->
+      </dl>
+    </div>
+  </div>
+}
+</div>

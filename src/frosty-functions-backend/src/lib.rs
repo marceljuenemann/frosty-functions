@@ -33,8 +33,8 @@ fn get_function(id: FunctionId) -> Option<FunctionState> {
 }
 
 #[ic_cdk::query]
-fn get_job(chain: Chain, job_id: Nat256) -> Result<Job, String> {
-    Err("not implemented".to_string())
+fn get_job(chain: Chain, job_id: Nat256) -> Option<Job> {
+    crate::storage::get_job(&chain, job_id.into())
 }
 
 /// Deploy a new function.

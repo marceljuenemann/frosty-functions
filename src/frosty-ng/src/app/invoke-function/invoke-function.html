@@ -49,7 +49,7 @@
     <div class="alert alert-success" role="alert">
       <b>Canister verified transaction and created job.</b>&nbsp;
       Job Id: {{ jobId.id }}&nbsp;
-      <a href="/evm/{{ this.chainId(jobId.chain) }}/jobs/{{ jobId.id }}" target="_blank">View status and logs</a>
+      <a href="/chains/eip155:{{ this.chainId(jobId.chain) }}/jobs/{{ jobId.id }}" target="_blank">View status and logs</a>
     </div>
   </div>
 }
