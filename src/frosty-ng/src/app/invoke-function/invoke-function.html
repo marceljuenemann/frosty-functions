@@ -16,7 +16,7 @@
 } @else if (this.transactionId()) {
   <div class="mb-3">
     <div class="alert alert-success" role="alert">
-      <b>Transaction submitted successfully.</b>
+      <b>Transaction submitted.</b>
       Transaction ID: <a href="{{ this.scannerUrl() }}/tx/{{ this.transactionId() }}" target="_blank">{{ this.transactionId() }}</a>
     </div>
   </div>
@@ -33,6 +33,23 @@
     <div class="alert alert-success" role="alert">
       <b>Transaction included in block.</b>
       Block number: <a href="{{ this.scannerUrl() }}/block/{{ this.blockNumber() }}" target="_blank">{{ this.blockNumber() }}</a>
+    </div>
+  </div>
+}
+
+@let jobId = this.jobId();
+@if (jobId === 'pending') {
+  <div class="mb-3">
+    <div class="alert alert-info" role="alert">
+      <b>Waiting for canister to index and verify transaction...</b>
+    </div>
+  </div>
+} @else if (jobId) {
+  <div class="mb-3">
+    <div class="alert alert-success" role="alert">
+      <b>Canister verified transaction and created job.</b>&nbsp;
+      Job Id: {{ jobId.id }}&nbsp;
+      <a href="/evm/{{ this.chainId(jobId.chain) }}/jobs/{{ jobId.id }}" target="_blank">View status and logs</a>
     </div>
   </div>
 }

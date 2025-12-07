@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core';
 import { idlFactory } from 'declarations/frosty-functions-backend';
 import asc from "assemblyscript/asc";
-import { _SERVICE, ExecutionResult, JobRequest, FunctionDefinition, DeployResult, FunctionState } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
+import { _SERVICE, ExecutionResult, JobRequest, FunctionDefinition, DeployResult, FunctionState, Chain, Result_1 } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
 import { Actor, ActorMethodMappedExtended, ActorSubclass, HttpAgent } from '@icp-sdk/core/agent';
 import { FROSTY_SOURCES, RUNTIME_SOURCE } from '../../../assembly/sources';
 import { decodeHex, encodeBase64, encodeHex } from './util';
+import { TransactionReceipt } from 'ethers';
 
 export type CompilationResult = {
   success: true
@@ -131,7 +132,7 @@ export class FrostyFunctionService {
   }
 
   async deploy(definition: FunctionDefinition): Promise<DeploymentResult> {
-    const result = await (await (await this.actor()).deploy(definition)).result;
+    const result = await (await (await this.actor()).deploy_function(definition)).result;
     if ('Err' in result) {
       return { error: `${result.Err}` };
     } else if ('Duplicate' in result) {
@@ -145,8 +146,35 @@ export class FrostyFunctionService {
 
   async getFunctionDefinition(functionId: Uint8Array): Promise<FunctionState | null> {
     // TODO: Use a private method for this await nonesense :D
-    const result = await (await (await this.actor()).function_definition(functionId)).result;
+    const result = await (await (await this.actor()).get_function(functionId)).result;
     return result.length ? result[0] : null;
   }
 
+  /**
+   * Asks the backend to index the given transaction. Resolves to the JobRequest created,
+   * or rejects if indexing failed.
+   */
+  async indexTransaction(chain: Chain, receipt: TransactionReceipt): Promise<JobRequest> {
+    // TODO: Why is type not inferred correctly here?
+    const response: {result: Promise<Result_1>} = await (await this.actor()).index_block(chain, receipt.blockNumber) as any;
+    const result: Result_1 = await response.result;
+    if ('Err' in result) throw new Error(`${result.Err}`);
+
+    // There might be JobRequests for other transactions in the same block; filter them out
+    const jobRequests = result.Ok.filter(req => req.transaction_hash && req.transaction_hash[0] === receipt.hash);
+    if (jobRequests.length != 1) {
+      throw new Error(`Expected exactly one JobRequest for transaction ${receipt.hash}, got ${jobRequests.length}`);
+    }
+    return jobRequests[0];
+  }
+
+  // TODO: Move into a config file, or fetch from the backend.
+  chainId(chain: Chain): number {
+    if ('Evm' in chain) {
+      if ('Localhost' in chain.Evm) return 31337;
+      if ('ArbitrumOne' in chain.Evm) return 42161;
+      if ('ArbitrumSepolia' in chain.Evm) return 421614;
+    }
+    throw new Error(`Unsupported chain: ${chain}`);
+  }
 }

@@ -3,11 +3,7 @@
   <div class="card shadow-sm mb-3">
     <div class="card-header d-flex align-items-center justify-content-between py-2">
       <div class="fw-semibold">
-        @if (commit.async_task.length) {
-          Callback #{{ commit.async_task[0][0] }}: {{ commit.async_task[0][1] }}
-        } @else {
-          main()
-        }
+        Commit {{ commitIdx }}: {{ commit.title }}
       </div>
     </div>
     <div class="card-body p-0">
