@@ -1,12 +1,13 @@
 
 use std::{collections::HashMap};
 
-use candid::Nat;
+use candid::{CandidType, Nat};
 use evm_rpc_types::{Hex20};
+use serde::Deserialize;
 
 use crate::{job::{Job, JobRequest}, state::{mutate_chain_state, read_chain_state}};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, candid::CandidType)]
+#[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, CandidType, Deserialize)]
 pub enum Chain {
     Evm(EvmChain)
 }
@@ -19,8 +20,7 @@ impl Chain {
     }
 }
 
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, candid::CandidType    )]
+#[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, CandidType, Deserialize)]
 pub enum EvmChain {
     ArbitrumOne,
     ArbitrumSepolia,

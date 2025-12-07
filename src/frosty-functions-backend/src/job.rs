@@ -1,8 +1,8 @@
-use candid::{CandidType, Nat};
+use candid::{CandidType};
 use evm_rpc_types::{Hex32, Nat256};
 use serde::{Deserialize, Serialize};
 
-use crate::chain::{Address, Chain};
+use crate::{chain::{Address, Chain}};
 
 /// Request for executing a function. Currently these are created from EVM logs,
 /// but in the future they could also come from other sources such as other chains,
@@ -21,7 +21,7 @@ pub struct JobRequest {
     /// On-chain job id. This ID is unique on-chain, but can be duplicate due
     /// to re-orgs.
     pub on_chain_id: Option<Nat256>,
-    /// Caller address formatted as string (e.g. 0x...)
+    /// Caller address.
     pub caller: Address,
     /// SHA-256 of the wasm of the function that should be executed.
     pub function_hash: [u8; 32],
@@ -34,10 +34,65 @@ pub struct JobRequest {
 /// Job with metadata and execution state.
 #[derive(Debug, Clone, CandidType, Serialize, Deserialize)]
 pub struct Job {
+    // The request that created this job.
     pub request: JobRequest,
-    // TODO: Add status, timestamps, logs, gas used etc.
+    // Current status of the job.
+    pub status: JobStatus,
+    // Timestamp when the job was created (Unix nanoseconds).
+    pub created_at: u64,
+    /// Execution is split into a series of commits. This field
+    /// contains the IDs of all commits for this job made so far.
+    pub commit_ids: Vec<u64>,
+    // TODO: Add gas used etc.
+    // TODO: Info for timers, keep alive to cancel stale jobs etc. (probably in Execution only)
 }
 
+impl Job {
+    pub fn new(request: JobRequest) -> Self {
+        Self {
+            request,
+            status: JobStatus::Pending,
+            created_at: ic_cdk::api::time(),
+            commit_ids: Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, CandidType)]
+pub enum JobStatus {
+    /// Job was added to the queue, but not yet processed.
+    Pending,
+    /// Job is currently being executed.
+    Executing,
+    /// Job is waiting for a timer to wake it up again.
+    Waiting,
+    /// Job completed without errors.
+    Completed,
+    /// Job execution failed.
+    Failed(String)  // Change to proper error type.
+}
+
+#[derive(Clone, Debug, CandidType)]
+pub struct Commit {
+    pub timestamp: u64,
+    pub title: String,
+    pub logs: Vec<LogEntry>,
+}
+
+/**
+ * Log entry with different log levels.
+ */
+#[derive(Clone, Debug, CandidType)]
+pub struct LogEntry {
+    pub level: LogType,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, CandidType)]
+pub enum LogType {
+    System,
+    Default,
+}
 
 /*
 type FailureReason = variant {
@@ -46,20 +101,6 @@ type FailureReason = variant {
   OutOfGas;              // Ran out of gas during execution
   UncaughtException;     // Uncaught exception in user code
   SystemError;           // Something that should not happen.
-};
-
-type JobStatus = variant {
-  // Job was added to the queue, but not yet processed.
-  Pending;
-
-  // Job is currently being executed.
-  Processing;
-  
-  // Job completed without errors.
-  Completed;
-
-  // Job execution failed.
-  Failed: record { error: FailureReason };
 };
 
 */

@@ -2,7 +2,7 @@ use alloy::primitives::{FixedBytes, keccak256};
 use candid::{CandidType};
 use serde::Deserialize;
 
-use crate::stable::{get_function, store_function};
+use crate::storage::{get_function, store_function};
 
 pub type FunctionId = Vec<u8>; // Keccak256 hash (32 bytes) of the function binary.
 

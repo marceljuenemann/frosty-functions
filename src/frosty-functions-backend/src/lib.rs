@@ -5,8 +5,8 @@ mod execution;
 mod job;
 mod repository;
 mod signer;
-mod stable;
 mod state;
+mod storage;
 
 use alloy::{signers::Signer};
 use candid::Nat;
@@ -45,7 +45,7 @@ fn evm_address() -> String {
 #[ic_cdk::update]
 async fn index_block(chain: Chain, block_number: u64) -> Result<Vec<Nat256>, String> {
     match &chain {
-        Chain::Evm(evm_chain) => crate::evm::index_block(evm_chain, block_number).await
+        Chain::Evm(evm_chain) => Ok(crate::evm::index_block(evm_chain, block_number).await?)
     }
 }
 
@@ -99,7 +99,7 @@ fn deploy(definition: FunctionDefinition) -> DeployResult {
 /// Retrieve function definition and state by its ID.
 #[ic_cdk::query]
 fn function_definition(id: FunctionId) -> Option<FunctionState> {
-    crate::stable::get_function(id)
+    crate::storage::get_function(id)
 }
 
 // Enable Candid export

@@ -2,32 +2,17 @@ use std::future::Future;
 use std::pin::Pin;
 
 use alloy::signers::icp::IcpSigner;
-use candid::{CandidType, Nat};
+use candid::{CandidType};
 use evm_rpc_types::Nat256;
 use wasmi::WasmParams;
 use wasmi::{Engine, Module, TypedFunc, core::TrapCode};
 
-use crate::signer::signer_for_address;
-use crate::{job::JobRequest, state::read_chain_state};
 use crate::api::{register_constants, register_host_functions};
 use crate::chain::Chain;
+use crate::job::{Commit, JobRequest, LogEntry, LogType};
+use crate::signer::signer_for_address;
 
 const FUEL_PER_BATCH: u64 = 1_000_000;
-
-/**
- * Log entry with different log levels.
- */
-#[derive(Clone, Debug, CandidType)]
-pub struct LogEntry {
-    pub level: LogType,
-    pub message: String,
-}
-
-#[derive(Clone, Debug, CandidType)]
-pub enum LogType {
-    System,
-    Default,
-}
 
 /// Return type for async host functions.
 /// 
@@ -53,10 +38,13 @@ pub struct ExecutionContext {
     pub simulation: bool,
     // Logs written during the current execution. Will be commited
     // to stable memory before yielding execution.
+    // TODO: Move into CommitContext
     pub logs: Vec<LogEntry>,
     // Pending async tasks.
+    // TODO: Move into CommitContext
     pub async_tasks: Vec<AsyncTask>,
     // Shared buffer that the guest can read using copy_shared_buffer.
+    // TODO: Move into CommitContext
     pub shared_buffer: Vec<u8>,
 }
 
@@ -80,14 +68,6 @@ impl ExecutionContext {
     }
 }
 
-/// Each job execution can be spread across multiple "commits" if
-/// async functions are used. These correlate to a single ICP message.
-#[derive(Clone, Debug, CandidType)]
-pub struct Commit {
-    pub timestamp: u64,
-    pub async_task: Option<(i32, String)>,  // Unset for initial main() commit.
-    pub logs: Vec<LogEntry>,
-}
 
 #[derive(Clone, Debug, CandidType)]
 pub struct ExecutionResult {
@@ -134,7 +114,7 @@ pub async fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionR
     execution.call_by_name("main".to_string())?;
 
     // TODO: Start all async tasks before commiting.
-    let mut commits = vec![execution.commit(None)?];
+    let mut commits = vec![execution.commit("main()".to_ascii_lowercase())?];
 
     /*
     if execution.store.data_mut().async_tasks.len() > 0 {
@@ -151,7 +131,7 @@ pub async fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionR
         execution.callback(task.id, &result)?;
         // TODO: Start more tasks.
         // TODO: Set source
-        commits.push(execution.commit(Some((task.id, task.description)))?);
+        commits.push(execution.commit(format!("Task #{}: {}", task.id, task.description))?);
     }
 
     Ok(ExecutionResult { commits })
@@ -271,12 +251,12 @@ impl JobExecution {
 
     /// Commits the current execution state, returning a Commit object.
     /// State should be commited before yielding execution for async operations.
-    fn commit(&mut self, async_task: Option<(i32, String)>) -> Result<Commit, String> {
+    fn commit(&mut self, title: String) -> Result<Commit, String> {
         let logs = self.store.data().logs.clone();
         self.store.data_mut().logs.clear();  // TODO: Store in stable memory
         Ok(Commit {
             timestamp: ic_cdk::api::time(),
-            async_task,
+            title,
             logs,
         })
     }

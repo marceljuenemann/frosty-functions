@@ -19,12 +19,14 @@ use crate::chain::EvmChain;
 use crate::evm::FrostyBridge::FunctionInvoked;
 use crate::job::JobRequest;
 use crate::state::read_state;
+use crate::storage::create_job;
 
 sol! {
     #[sol(rpc)]
     "../../contracts/Bridge.sol"
 }
 
+/// Creates jobs from log events in the specified block.
 pub async fn index_block(chain: &EvmChain, block_number: u64) -> Result<Vec<Nat256>, String> {
     // TODO: Configure response size, use multiple providers etc.
     let config = alloy::transports::icp::IcpConfig::new(rpc_service(&chain));
@@ -34,10 +36,12 @@ pub async fn index_block(chain: &EvmChain, block_number: u64) -> Result<Vec<Nat2
         .event(FrostyBridge::FunctionInvoked::SIGNATURE)
         .from_block(BlockNumberOrTag::Number(block_number))
         .to_block(BlockNumberOrTag::Number(block_number));
-    let logs = provider.get_logs(&filter).await
-        .map_err(|e: alloy::transports::RpcError<alloy::transports::TransportErrorKind>| format!("Failed to fetch Bridge events: {}", e))?;
-
-    let jobs: Vec<JobRequest> = logs.into_iter()
+    let job_ids = provider
+        .get_logs(&filter)
+        .await
+        .map_err(|e: alloy::transports::RpcError<alloy::transports::TransportErrorKind>| format!("Failed to fetch Bridge events: {}", e))?
+        .into_iter()
+        // Create JobRequests from log events.
         .filter_map(|log| {
             let job = job_from_event(chain, log);
             if job.is_err() {
@@ -45,14 +49,12 @@ pub async fn index_block(chain: &EvmChain, block_number: u64) -> Result<Vec<Nat2
             }
             job.ok()
         })
+        // Create job in storage (if it doesn't exist yet).
+        .filter(|request| create_job(request.clone()))
+        // Return on_chain_id of created jobs.
+        .map(|request| request.on_chain_id.unwrap())
         .collect();
-
-    ic_cdk::println!("Jobs found: {:#?}", jobs);
-    // TODO: Create jobs in stable memory.
-    // TODO: Submit jobs for execution (probably in parent function).
-
-
-    Err("Not yet implemented".to_string())
+    Ok(job_ids)
 }
 
 fn job_from_event(chain: &EvmChain, event: Log) -> Result<JobRequest, String> {
