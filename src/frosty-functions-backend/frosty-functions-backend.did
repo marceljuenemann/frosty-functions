@@ -46,6 +46,7 @@ type Result_1 = variant { Ok : ExecutionResult; Err : text };
 service : {
   // Deploy a new function.
   deploy_function : (FunctionDefinition) -> (DeployResult);
+  get_commit : (nat64) -> (opt Commit) query;
   get_evm_address : () -> (text) query;
   // Retrieve function definition and state by its ID.
   get_function : (blob) -> (opt FunctionState) query;

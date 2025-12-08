@@ -1,19 +1,22 @@
 import { Component, signal, Signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { Chain, Job } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
+import { Chain, Commit, Job } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
 import { FrostyFunctionService } from '../frosty-function-service';
 import { encodeHex, formatTimestamp } from '../util';
 import { JsonPipe } from '@angular/common';
 import { SCANNER_URL } from '../invoke-function/invoke-function';
+import { LogViewer } from '../log-viewer/log-viewer';
 
 @Component({
   selector: 'app-job',
-  imports: [JsonPipe],
+  imports: [LogViewer],
   templateUrl: './job.html',
   styleUrl: './job.scss',
 })
 export class JobComponent {
   job = signal<Job | 'notfound' | 'loading'>('loading');
+  commits = signal<Array<Commit>>([]);
+  commitCache = new Map<bigint, Promise<Commit>>();
 
   constructor(private route: ActivatedRoute, private service: FrostyFunctionService) {
     const chain = this.parseChainId(route.snapshot.params['chainId'])
@@ -24,6 +27,7 @@ export class JobComponent {
       // TODO: Unsubscribe
       this.service.watchJob(chain, jobId).subscribe((job) => {
         this.job.set(job ?? 'notfound');
+        this.fetchCommits(job!.commit_ids);
       });
     }
   }
@@ -40,6 +44,18 @@ export class JobComponent {
       default:
         return null;
     }
+  }
+
+  private async fetchCommits(commitIds: BigUint64Array | bigint[]) {
+    console.log("Fetching commits for IDs:", commitIds);
+    const promises: Promise<Commit>[] = Array.from(commitIds).map((id) => {
+      if (!this.commitCache.has(id)) {
+        this.commitCache.set(id, this.service.getCommit(id));
+      }
+      return this.commitCache.get(id)!;
+    });
+    console.log("Fetching commits:", promises);
+    this.commits.set(await Promise.all(promises));
   }
 
   chainName(chain: Chain): string {

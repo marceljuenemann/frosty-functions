@@ -13,12 +13,17 @@ use chain::{Chain};
 use evm_rpc_types::Nat256;
 use job::Job;
 
-use crate::{execution::{ExecutionResult, schedule_job}, job::JobRequest, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, state::{init_state, read_state}};
+use crate::{execution::{ExecutionResult, schedule_job}, job::{Commit, JobRequest}, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, state::{init_state, read_state}};
 
 #[ic_cdk::update]
 async fn init() {
     // TODO: Restrict to controllers.
     init_state().await;
+}
+
+#[ic_cdk::query]
+fn get_commit(commit_id: u64) -> Option<Commit> {
+    crate::storage::get_commit(commit_id)
 }
 
 #[ic_cdk::query]

@@ -27,7 +27,7 @@
         <dd class="col-sm-9">{{ job.request.on_chain_id }}</dd>
 
         <dt class="col-sm-3">Caller Address</dt>
-        <dd class="col-sm-9"><a href="{{ SCANNER_URL }}/address/{{ job.request.caller?.EvmAddress }}" target="_blank">{{ job.request.caller?.EvmAddress }}</a></dd>
+        <dd class="col-sm-9"><a href="{{ SCANNER_URL }}/address/{{ $any(job.request.caller).EvmAddress }}" target="_blank">{{ $any(job.request.caller).EvmAddress }}</a></dd>
 
         <dt class="col-sm-3">Calldata</dt>
         <dd class="col-sm-9">{{ encodeHex(job.request.data) }}</dd>
@@ -83,5 +83,7 @@
       </dl>
     </div>
   </div>
+
+  <app-log-viewer [commits]="this.commits()"></app-log-viewer>
 }
 </div>

@@ -1,7 +1,7 @@
 import { Injectable, Signal, signal } from '@angular/core';
 import { idlFactory } from 'declarations/frosty-functions-backend';
 import asc from "assemblyscript/asc";
-import { _SERVICE, ExecutionResult, JobRequest, FunctionDefinition, DeployResult, FunctionState, Chain, Result_1, Result, Job } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
+import { _SERVICE, ExecutionResult, JobRequest, FunctionDefinition, DeployResult, FunctionState, Chain, Result_1, Result, Job, Commit } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
 import { Actor, ActorMethodMappedExtended, ActorSubclass, HttpAgent } from '@icp-sdk/core/agent';
 import { FROSTY_SOURCES, RUNTIME_SOURCE } from '../../../assembly/sources';
 import { decodeHex, encodeBase64, encodeHex } from './util';
@@ -190,6 +190,15 @@ export class FrostyFunctionService {
       switchMap(() => this.getJob(chain, jobId)),
       takeWhile(job => !!(job && !('Completed' in job.status) && !("Failed" in job.status)), true)
     );
+  }
+
+  async getCommit(commitId: bigint): Promise<Commit> {
+    const response = await ((await (await this.actor()).get_commit(commitId)).result);
+    if (!response.length) {
+      throw new Error(`Commit ${commitId} not found`);
+    }
+    console.log("Fetched commit:", commitId, response[0]);
+    return response[0];
   }
 
   // TODO: Move into a config file, or fetch from the backend.

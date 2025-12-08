@@ -94,6 +94,10 @@ pub fn store_commit(job: &JobRequest, commit: &Commit) -> Result<u64, WriteError
     Ok(commit_id)
 }
 
+pub fn get_commit(commit_id: u64) -> Option<Commit> {
+    COMMITS.with(|p| p.borrow_mut().get(commit_id))
+}
+
 /// Cross-chain Job ID.
 #[derive(Debug, Deserialize, Clone, CandidType, Ord, PartialOrd, PartialEq, Eq)]
 struct JobKey {
