@@ -5,6 +5,7 @@ use std::time::Duration;
 use alloy::signers::icp::IcpSigner;
 use candid::{CandidType};
 use ic_cdk_timers::set_timer;
+use ic_stable_structures::log::WriteError;
 use wasmi::WasmParams;
 use wasmi::{Engine, Module, TypedFunc, core::TrapCode};
 
@@ -63,7 +64,8 @@ pub async fn execute_job(request: JobRequest, wasm: &[u8]) -> Result<(), String>
     // TODO: Start all async tasks before commiting?
     // TODO: with_commit rather than manual commit calls.
     // TODO: Probably need a on_commit callback for async functions with multiple commits.
-    let mut commits = vec![execution.commit("main()".to_ascii_lowercase())?];
+    let commit = execution.commit("main()".to_ascii_lowercase())?;
+    store_commit(&request, &commit)?;
 
     while !execution.store.data().async_tasks.is_empty() {
         ic_cdk::println!("Processing {} async tasks...", execution.store.data().async_tasks.len());
@@ -74,12 +76,18 @@ pub async fn execute_job(request: JobRequest, wasm: &[u8]) -> Result<(), String>
         execution.callback(task.id, &result)?;
         // TODO: Start more tasks.
         // TODO: Set source
-        commits.push(execution.commit(format!("Task #{}: {}", task.id, task.description))?);
+        let commit = execution.commit(format!("Task #{}: {}", task.id, task.description))?;
+        store_commit(&request, &commit)?;
     }
 
     // TODO: Handled errors
     update_job_status(&request, JobStatus::Completed);
     Ok(())
+}
+
+fn store_commit(job: &JobRequest, commit: &Commit) -> Result<u64, String> {
+    crate::storage::store_commit(job, commit)
+        .map_err(|err| format!("Failed to store commit: {:?}", err))
 }
 
 pub async fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionResult, String> {

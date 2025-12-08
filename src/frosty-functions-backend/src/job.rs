@@ -73,7 +73,7 @@ pub enum JobStatus {
     Failed(String)  // Change to proper error type.
 }
 
-#[derive(Clone, Debug, CandidType)]
+#[derive(Clone, Debug, CandidType, Deserialize)]
 pub struct Commit {
     pub timestamp: u64,
     pub title: String,
@@ -83,13 +83,13 @@ pub struct Commit {
 /**
  * Log entry with different log levels.
  */
-#[derive(Clone, Debug, CandidType)]
+#[derive(Clone, Debug, CandidType, Deserialize)]
 pub struct LogEntry {
     pub level: LogType,
     pub message: String,
 }
 
-#[derive(Clone, Debug, CandidType)]
+#[derive(Clone, Debug, CandidType, Deserialize)]
 pub enum LogType {
     System,
     Default,

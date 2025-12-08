@@ -1,13 +1,14 @@
 use candid::{CandidType, Decode, Encode, Nat};
+use ic_stable_structures::log::WriteError;
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::storable::Bound;
-use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap, Storable};
+use ic_stable_structures::{DefaultMemoryImpl, Log, StableBTreeMap, Storable};
 use serde::Deserialize;
 use std::borrow::Cow;
 use std::cell::RefCell;
 
 use crate::chain::Chain;
-use crate::job::{Job, JobRequest, JobStatus};
+use crate::job::{Commit, Job, JobRequest, JobStatus, LogEntry};
 use crate::repository::{FunctionId, FunctionState};
 
 type Memory = VirtualMemory<DefaultMemoryImpl>;
@@ -30,7 +31,13 @@ thread_local! {
         )
     );
 
-    // TODO: Store commits in a Log structure.
+    // Storage for commits (executions logs).
+    static COMMITS: RefCell<Log<Commit, Memory, Memory>> = RefCell::new(
+        Log::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(2))),
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3)))
+        )
+    );
 }
 
 pub fn store_function(id: FunctionId, state: FunctionState) -> Option<FunctionState> {
@@ -79,6 +86,14 @@ pub fn update_job_status(job: &JobRequest, status: JobStatus) {
     })
 }
 
+pub fn store_commit(job: &JobRequest, commit: &Commit) -> Result<u64, WriteError> {
+    let commit_id = COMMITS.with(|p| {
+        p.borrow_mut().append(commit)
+    })?;
+    update_job(job, |job| job.commit_ids.push(commit_id));
+    Ok(commit_id)
+}
+
 /// Cross-chain Job ID.
 #[derive(Debug, Deserialize, Clone, CandidType, Ord, PartialOrd, PartialEq, Eq)]
 struct JobKey {
@@ -120,3 +135,5 @@ macro_rules! impl_storable {
 impl_storable!(FunctionState);
 impl_storable!(JobKey);  // TODO: Might want to use Bound::FixedSize here.
 impl_storable!(Job);
+impl_storable!(Commit);
+impl_storable!(LogEntry);
