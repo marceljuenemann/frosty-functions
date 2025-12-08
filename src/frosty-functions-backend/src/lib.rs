@@ -1,9 +1,8 @@
-mod api;
 mod chain;
 mod evm;
 mod execution;
-mod job;
 mod repository;
+mod runtime;
 mod signer;
 mod state;
 mod storage;
@@ -11,9 +10,8 @@ mod storage;
 use alloy::{signers::Signer};
 use chain::{Chain};
 use evm_rpc_types::Nat256;
-use job::Job;
 
-use crate::{execution::{ExecutionResult, schedule_job}, job::{Commit, JobRequest}, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, state::{init_state, read_state}};
+use crate::{execution::schedule_job, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, runtime::{Commit, ExecutionResult, Job, JobRequest}, state::{init_state, read_state}};
 
 #[ic_cdk::update]
 async fn init() {

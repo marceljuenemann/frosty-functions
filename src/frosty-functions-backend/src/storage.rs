@@ -8,8 +8,8 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 
 use crate::chain::Chain;
-use crate::job::{Commit, Job, JobRequest, JobStatus, LogEntry};
 use crate::repository::{FunctionId, FunctionState};
+use crate::runtime::{Commit, Job, JobRequest, JobStatus, LogEntry};
 
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 

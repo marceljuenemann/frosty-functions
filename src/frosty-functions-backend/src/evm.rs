@@ -17,7 +17,7 @@ use evm_rpc_types::Nat256;
 use crate::chain::Chain;
 use crate::chain::EvmChain;
 use crate::evm::FrostyBridge::FunctionInvoked;
-use crate::job::JobRequest;
+use crate::runtime::JobRequest;
 use crate::state::read_state;
 use crate::storage::create_job;
 
