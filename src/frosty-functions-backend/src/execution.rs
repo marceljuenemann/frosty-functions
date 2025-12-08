@@ -1,9 +1,11 @@
 use std::future::Future;
 use std::pin::Pin;
+use std::time::Duration;
 
 use alloy::signers::icp::IcpSigner;
 use candid::{CandidType};
 use evm_rpc_types::Nat256;
+use ic_cdk_timers::set_timer;
 use wasmi::WasmParams;
 use wasmi::{Engine, Module, TypedFunc, core::TrapCode};
 
@@ -13,6 +15,15 @@ use crate::job::{Commit, JobRequest, LogEntry, LogType};
 use crate::signer::signer_for_address;
 
 const FUEL_PER_BATCH: u64 = 1_000_000;
+
+pub fn schedule_job(job_request: &JobRequest) {
+    // Schedule execution of the job in a new IC message in case it panics.
+    // TODO: Don't schedule more than X jobs at once.
+    let job_request = job_request.clone();
+    let timer_id = set_timer(Duration::from_secs(0), async move {
+        ic_cdk::println!("Starting execution of job {:?} on chain {:?}", job_request.on_chain_id, job_request.chain);
+    });
+}
 
 /// Return type for async host functions.
 /// 
@@ -28,81 +39,6 @@ struct AsyncTask {
     pub description: String,
     // Future that will produce the result.
     pub future: Pin<Box<dyn Future<Output = AsyncResult>>>,
-}
-
-/// Runtime context available to host functions during execution.
-pub struct ExecutionContext {
-    pub request: JobRequest,
-    // The shared wallet of the caller of the execution.
-    pub caller_wallet: IcpSigner,
-    pub simulation: bool,
-    // Logs written during the current execution. Will be commited
-    // to stable memory before yielding execution.
-    // TODO: Move into CommitContext
-    pub logs: Vec<LogEntry>,
-    // Pending async tasks.
-    // TODO: Move into CommitContext
-    pub async_tasks: Vec<AsyncTask>,
-    // Shared buffer that the guest can read using copy_shared_buffer.
-    // TODO: Move into CommitContext
-    pub shared_buffer: Vec<u8>,
-}
-
-impl ExecutionContext {
-    pub fn log(&mut self, level: LogType, message: String) {
-        self.logs.push(LogEntry { level, message });
-    }
-
-    pub fn queue_task(
-        &mut self,
-        id: i32,
-        description: String,
-        future: Pin<Box<dyn Future<Output = AsyncResult>>>,
-    ) {
-        self.log(LogType::System, format!("Queued AsyncTask #{}: {}", id, description));
-        self.async_tasks.push(AsyncTask {
-            id,
-            description,
-            future,
-        });
-    }
-}
-
-
-#[derive(Clone, Debug, CandidType)]
-pub struct ExecutionResult {
-    pub commits: Vec<Commit>,
-    // Add other fields as needed (gas used, state changes, etc.)
-}
-
-pub async fn execute_job(chain: Chain, job_id: Nat256) -> Result<(), String> {
-
-    Err("execute_job currently deactivated".to_string())
-
-    /*
-    let request = read_chain_state(&chain, |state| {
-        state.jobs.get(job_id.as_ref())
-            .ok_or_else(|| format!("Job not found: {}", job_id))
-            .map(|job| job.request.clone())
-    })?;
-    let binary = [];  // include_bytes!("../../assembly-playground/build/debug.wasm");
-    
-    // TODO: Verify status is "pending" and set to "in progress".
-
-    let mut execution = JobExecution::init(request.clone(), &binary, false)?;
-    execution.call_by_name("main".to_string())?;
-
-    // Process any pending callbacks registered by host functions
-    // TODO: Support actual async operations. Commit gas and state as needed.
-    /*
-    while let Some(callback_index) = execution.store.data_mut().pending_callbacks.pop_front() {
-        ic_cdk::println!("Executing callback with index: {}", callback_index);
-        execution.call_by_reference(callback_index)?;
-    }
-    */
-
-    Ok(())
-    */
 }
 
 // TODO: Remove async
@@ -137,8 +73,8 @@ pub async fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionR
     Ok(ExecutionResult { commits })
 }
 
-/// Runtime state for a job execution.
-// TODO: Maybe don't need this, inline into exeuction function again.
+/// Runtime state for a job execution. All methods are synchronous and the caller is expected
+/// to handle scheudling of async operations.
 struct JobExecution {
     pub store: wasmi::Store<ExecutionContext>,
     pub instance: wasmi::Instance,
@@ -151,6 +87,7 @@ struct JobExecution {
 impl JobExecution {
     /// Creates a wasmi Engine and initializes the module. 
     pub fn init(request: JobRequest, wasm: &[u8], simulation: bool, signer: IcpSigner) -> Result<Self, String> {
+        // TODO: Cache the engine instead of recreating it for each execution?
         let mut config = wasmi::Config::default();
         config.consume_fuel(true);
         let engine = Engine::new(&config);
@@ -177,16 +114,9 @@ impl JobExecution {
             .map_err(|e| format!("Failed to register host functions: {}", e))?;
 
         // Initialize and start the module instance.
-        // TODO: Move to instantiate_and_start
         store.data_mut().log(LogType::System, format!("Instantiating WASM module"));
-        let instance = linker.instantiate(&mut store, &module)
-            .map_err(|e| format!("Failed to instantiate WASM module: {}", e))?
-            // TODO: Allow fail if async host functions are called during initialization?
-            .start(&mut store)
-            // TODO: Might want to handle out of fuel errors differently here.
-            .map_err(|e| format!("Failed to start WASM module: {}", e))?;
-            // TODO: Consider using --exportStart with asc to have a fully initialized module.
-    
+        let instance = linker.instantiate_and_start(&mut store, &module)
+            .map_err(|e| format!("Failed to instantiate WASM module: {}", e))?;
         Ok(Self {
             fn_main: instance.get_typed_func::<(), ()>(&store, "main").map_err(|e| format!("main() function missing: {}", e))?,
             fn_resolve: instance.get_typed_func::<(i32, i32), ()>(&store, "__frosty_resolve").map_err(|e| format!("__frosty_resolve() function missing: {}", e))?,
@@ -259,5 +189,50 @@ impl JobExecution {
             title,
             logs,
         })
+    }
+}
+
+// TODO: This might become a SimulationResult?
+#[derive(Clone, Debug, CandidType)]
+pub struct ExecutionResult {
+    pub commits: Vec<Commit>,
+    // Add other fields as needed (gas used, state changes, etc.)
+}
+
+/// Runtime context available to host functions during execution.
+pub struct ExecutionContext {
+    pub request: JobRequest,
+    // The shared wallet of the caller of the execution.
+    pub caller_wallet: IcpSigner,
+    pub simulation: bool,
+    // Logs written during the current execution. Will be commited
+    // to stable memory before yielding execution.
+    // TODO: Move into CommitContext
+    pub logs: Vec<LogEntry>,
+    // Pending async tasks.
+    // TODO: Move into CommitContext
+    pub async_tasks: Vec<AsyncTask>,
+    // Shared buffer that the guest can read using copy_shared_buffer.
+    // TODO: Move into CommitContext
+    pub shared_buffer: Vec<u8>,
+}
+
+impl ExecutionContext {
+    pub fn log(&mut self, level: LogType, message: String) {
+        self.logs.push(LogEntry { level, message });
+    }
+
+    pub fn queue_task(
+        &mut self,
+        id: i32,
+        description: String,
+        future: Pin<Box<dyn Future<Output = AsyncResult>>>,
+    ) {
+        self.log(LogType::System, format!("Queued AsyncTask #{}: {}", id, description));
+        self.async_tasks.push(AsyncTask {
+            id,
+            description,
+            future,
+        });
     }
 }

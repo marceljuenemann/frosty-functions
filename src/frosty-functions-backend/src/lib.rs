@@ -13,7 +13,7 @@ use chain::{Chain};
 use evm_rpc_types::Nat256;
 use job::Job;
 
-use crate::{execution::ExecutionResult, job::JobRequest, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, state::{init_state, read_state}};
+use crate::{execution::{ExecutionResult, schedule_job}, job::JobRequest, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, state::{init_state, read_state}};
 
 #[ic_cdk::update]
 async fn init() {
@@ -52,7 +52,13 @@ fn deploy_function(definition: FunctionDefinition) -> DeployResult {
 #[ic_cdk::update]
 async fn index_block(chain: Chain, block_number: u64) -> Result<Vec<JobRequest>, String> {
     match &chain {
-        Chain::Evm(evm_chain) => Ok(crate::evm::index_block(evm_chain, block_number).await?)
+        Chain::Evm(evm_chain) => {
+            let jobs = crate::evm::index_block(evm_chain, block_number).await?;
+            for job in &jobs {
+                schedule_job(job);
+            }
+            Ok(jobs)
+        }
     }
 }
 

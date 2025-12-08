@@ -1404,6 +1404,7 @@ dependencies = [
  "getrandom 0.2.16",
  "hex",
  "ic-cdk",
+ "ic-cdk-timers",
  "ic-stable-structures",
  "serde",
  "serde_json",

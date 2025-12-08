@@ -1,4 +1,9 @@
+/* TODO: Share these globally */
 .card-header {
   font-size: 1.3rem;
   font-weight: bold;
+}
+
+.card-body dl {
+  margin-bottom: 0;
 }
