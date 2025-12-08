@@ -2,10 +2,13 @@ import { Component, signal, Signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Chain, Job } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
 import { FrostyFunctionService } from '../frosty-function-service';
+import { encodeHex, formatTimestamp } from '../util';
+import { JsonPipe } from '@angular/common';
+import { SCANNER_URL } from '../invoke-function/invoke-function';
 
 @Component({
   selector: 'app-job',
-  imports: [],
+  imports: [JsonPipe],
   templateUrl: './job.html',
   styleUrl: './job.scss',
 })
@@ -37,4 +40,25 @@ export class JobComponent {
         return null;
     }
   }
+
+  chainName(chain: Chain): string {
+    if ('Evm' in chain) {
+      if ('Localhost' in chain.Evm) return "Localhost EVM Node";
+      if ('ArbitrumOne' in chain.Evm) return "Arbitrum One";
+      if ('ArbitrumSepolia' in chain.Evm) return "Arbitrum Sepolia Testnet";
+    }
+    return "Unknown Chain";
+  }
+
+  chainId(chain: Chain): string {
+    return this.service.chainId(chain).toString();
+  }
+
+  jobStatus(job: Job): string {
+    return Object.keys(job.status)[0].toLowerCase();
+  }
+
+  formatTimestamp = formatTimestamp;
+  encodeHex = encodeHex;
+  SCANNER_URL = SCANNER_URL;
 }

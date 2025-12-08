@@ -13,23 +13,73 @@
 } @else {
   <div class="card mb-4">
     <div class="card-header">
-      Metadata
+      Request Details
     </div>
     <div class="card-body">
       <dl class="row">
-        <dt class="col-sm-3">Canister</dt>
-        <dd class="col-sm-9">TODO</dd>
+        <dt class="col-sm-3">Function Hash</dt>
+        <dd class="col-sm-9"><a href="/functions/{{ encodeHex(job.request.function_hash) }}">{{ encodeHex(job.request.function_hash) }}</a></dd>
 
-        <dt class="col-sm-3">WASM Binary</dt>
-        <dd class="col-sm-9">TODO: Downlaod</dd>
+        <dt class="col-sm-3">Calling Chain</dt>
+        <dd class="col-sm-9">{{ chainName(job.request.chain) }} (Chain ID: {{ chainId(job.request.chain) }})</dd>
 
-        <dt class="col-sm-3">Source Code</dt>
-        <dd class="col-sm-9">TODO: Downlaod</dd>
+        <dt class="col-sm-3">Job ID</dt>
+        <dd class="col-sm-9">{{ job.request.on_chain_id }}</dd>
 
-        <!--
-        <dt class="col-sm-3">Deployed at</dt>
-        <dd class="col-sm-9">{{ formatTimestamp(function.deployed_at) }}</dd>
-        -->
+        <dt class="col-sm-3">Caller Address</dt>
+        <dd class="col-sm-9"><a href="{{ SCANNER_URL }}/address/{{ job.request.caller?.EvmAddress }}" target="_blank">{{ job.request.caller?.EvmAddress }}</a></dd>
+
+        <dt class="col-sm-3">Calldata</dt>
+        <dd class="col-sm-9">{{ encodeHex(job.request.data) }}</dd>
+
+        <dt class="col-sm-3">Gas Payment</dt>
+        <dd class="col-sm-9">{{ job.request.gas_payment }}</dd>
+
+        <dt class="col-sm-3">Transaction Hash</dt>
+        <dd class="col-sm-9"><a href="{{ SCANNER_URL }}/tx/{{ job.request.transaction_hash }}" target="_blank">{{ job.request.transaction_hash }}</a></dd>
+
+        <dt class="col-sm-3">Block Hash</dt>
+        <dd class="col-sm-9"><a href="{{ SCANNER_URL }}/block/{{ job.request.block_hash }}" target="_blank">{{ job.request.block_hash }}</a></dd>
+
+        <dt class="col-sm-3">Block Number</dt>
+        <dd class="col-sm-9">{{ job.request.block_number }}</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header">
+      Job Status
+    </div>
+    <div class="card-body">
+      <dl class="row">
+        <dt class="col-sm-3">Status</dt>
+        <dd class="col-sm-9">
+          <!-- TODO: Add explanations -->
+          @switch (jobStatus(job)) {
+            @case ('pending') {
+              <span class="badge bg-secondary">Not started</span>
+            }
+            @case ('executing') {
+              <span class="badge bg-info">Executing</span>
+            }
+            @case ('waiting') {
+              <span class="badge bg-info">Waiting</span>
+            }
+            @case ('completed') {
+              <span class="badge bg-success">Completed</span>
+            }
+            @case ('failed') {
+              <span class="badge bg-danger">Failed</span>
+            }
+            @default {
+              <span class="badge bg-warning">Unknown</span>
+            }
+          }
+        </dd>
+
+        <dt class="col-sm-3">Created at</dt>
+        <dd class="col-sm-9">{{ formatTimestamp(job.created_at) }}</dd>
       </dl>
     </div>
   </div>

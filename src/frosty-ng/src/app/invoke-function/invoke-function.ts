@@ -7,6 +7,9 @@ import { FrostyFunctionService } from '../frosty-function-service';
 // TODO: Configurable
 const CHAIN: Chain = { Evm: { Localhost: null } };
 
+// TODO: Move to a config object
+export const SCANNER_URL = 'https://sepolia.arbiscan.io';
+
 @Component({
   selector: 'app-invoke-function',
   imports: [],
@@ -23,7 +26,7 @@ export class InvokeFunctionComponent {
   error = signal<string | null>(null);
 
   // TODO: Set based on chain ID
-  scannerUrl = signal<string | null>('https://sepolia.arbiscan.io');
+  scannerUrl = signal<string | null>(SCANNER_URL);
 
   constructor(
     private signerService: SignerService,
