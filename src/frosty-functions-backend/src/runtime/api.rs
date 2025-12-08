@@ -1,6 +1,8 @@
 use alloy::signers::Signer;
 use wasmi::{Caller, Error, Func, Global, Linker, Memory, Mutability, Store, Val, errors::LinkerError};
-use crate::{Chain, evm::transfer_funds, runtime::{ExecutionContext, LogType}};
+use crate::runtime::{LogEntry, LogType};
+use crate::{Chain, evm::transfer_funds};
+use crate::runtime::runtime::{ExecutionContext};
 
 /// The maximum length of data that can be passed to/from the guest.
 // TODO: Consider increasing if there is a use case.
@@ -17,7 +19,7 @@ macro_rules! log {
 
 /// Registers all constants into the given linker.
 pub fn register_constants(linker: &mut Linker<ExecutionContext>, store: &mut Store<ExecutionContext>) -> Result<(), LinkerError> {
-    let calldata_size = store.data().request.data.len() as i32;
+    let calldata_size = store.data().env().job_request().data.len() as i32;
     linker.define("❄️", "CALLDATA_SIZE", Global::new(
         &mut *store,
         Val::I32(calldata_size),
@@ -66,20 +68,20 @@ fn console_log(mut caller: Caller<ExecutionContext>, message_ptr: i32) {
     let message = read_utf16_string(&caller, message_ptr, CONSOLE_LOG_MAX_LEN)
         // TODO: Return error?
         .unwrap_or_else(|e| format!("(failed to read log message: {})", e));
-    caller.data_mut().log(LogType::Default, message.clone());
+    caller.data_mut().commit_context().logs.push(LogEntry { level: LogType::Default, message: message.clone() });
     // TODO: Charge cycles for logs storage.
 }
 
 /// Writes the calldata into the provided buffer, which is expected to be of CALLDATA_SIZE.
 fn calldata(mut caller: Caller<ExecutionContext>, buffer_ptr: i32) -> Result<(), Error> {
-    let calldata = caller.data().request.data.clone();
+    let calldata = caller.data().env().job_request().data.clone();
     get_memory(&caller).write(&mut caller, buffer_ptr as usize, &calldata)?;
     Ok(())  // TODO: remove?
 }
 
 fn on_chain_id(caller: Caller<ExecutionContext>) -> i64 {
     let context = caller.data();
-    if let Some(id) = context.request.on_chain_id.clone() {
+    if let Some(id) = context.env().job_request().on_chain_id.clone() {
         // TODO: Proper error handling for overflows.
         let id: u64 = id.to_string().parse().unwrap();
         id as i64
@@ -91,7 +93,7 @@ fn on_chain_id(caller: Caller<ExecutionContext>) -> i64 {
 /// Writes the caller's wallet address as a UTF-16LE string into the provided buffer.
 /// The buffer is expected to be large enough to hold the address string.
 fn evm_caller_wallet_address(mut caller: Caller<ExecutionContext>, buffer_ptr: i32) -> Result<(), Error> {
-    let address = caller.data().caller_wallet.address().to_string();
+    let address = caller.data().env().caller_wallet().address().to_string();
     ic_cdk::println!("EVM caller wallet address: {}", address);
     write_utf16_string(&mut caller, &address, buffer_ptr)
 }
@@ -102,11 +104,11 @@ fn evm_caller_wallet_address(mut caller: Caller<ExecutionContext>, buffer_ptr: i
 /// TODO: Offer a general transfer_gas function to any address. We'd just need to handle
 /// replacing failing transactions to not cause all future transaction to get stuck.
 fn evm_caller_wallet_deposit(mut caller: Caller<ExecutionContext>, amount: u64, promise_id: i32) -> Result<(), Error> {
-    let evm_chain = match &caller.data().request.chain {
+    let evm_chain = match &caller.data().env().job_request().chain {
         Chain::Evm(id) => id.clone(),
         _ => return Err(Error::new("CallerWallet.deposit can only be used on EVM chains".to_string())),
     };
-    let wallet = caller.data().caller_wallet.clone();
+    let wallet = caller.data().env().caller_wallet();
     
     caller.data_mut().queue_task(
         promise_id,
@@ -132,7 +134,7 @@ fn evm_caller_wallet_deposit(mut caller: Caller<ExecutionContext>, amount: u64, 
 // TOOD: Also expose lower level sign_hash to sign arbitrary hashes.  
 fn evm_caller_wallet_sign_message(mut caller: Caller<ExecutionContext>, message_ptr: i32, promise_id: i32) -> Result<(), Error> {
     let message = read_buffer(&caller, message_ptr, BUFFER_MAX_LEN)?;
-    let wallet = caller.data().caller_wallet.clone();
+    let wallet = caller.data().env().caller_wallet();
     // TODO: Spawn rather than queue task
     caller.data_mut().queue_task(
         promise_id,
@@ -148,7 +150,7 @@ fn evm_caller_wallet_sign_message(mut caller: Caller<ExecutionContext>, message_
 }
 
 fn evm_chain_id(caller: Caller<ExecutionContext>) -> u64 {
-    match &caller.data().request.chain  {
+    match &caller.data().env().job_request().chain  {
         Chain::Evm(id) => crate::evm::evm_chain_id(id.clone()),
         _ => 0,
     }
@@ -189,7 +191,7 @@ fn write_utf16_string(caller: &mut Caller<ExecutionContext>, str: &String, buffe
 /// Copies the shared buffer into the guest memory at the given pointer.
 /// The guest is expected to have allocated a buffer of the same size.
 fn copy_shared_buffer(mut caller: Caller<ExecutionContext>, buffer_ptr: i32) -> Result<(), Error> {
-    let shared_buffer = caller.data().shared_buffer.clone();
+    let shared_buffer = caller.data_mut().commit_context().shared_buffer.clone();
     get_memory(&caller).write(&mut caller, buffer_ptr as usize, &shared_buffer)?;
     Ok(())
 }

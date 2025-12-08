@@ -4,6 +4,7 @@ mod execution;
 mod repository;
 mod runtime;
 mod signer;
+mod simulation;
 mod state;
 mod storage;
 
@@ -74,7 +75,7 @@ fn simulate_execution(request: JobRequest, wasm: Vec<u8>) -> Result<ExecutionRes
 // TDOO: Delete once execute_job is properly implemented.
 #[ic_cdk::update]
 async fn temp_simulate_execution(request: JobRequest, wasm: Vec<u8>) -> Result<ExecutionResult, String> {
-    crate::execution::simulate_job(request, &wasm).await
+    crate::simulation::simulate_job(request, &wasm).await
 }
 
 // Enable Candid export

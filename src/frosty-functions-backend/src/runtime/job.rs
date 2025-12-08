@@ -1,4 +1,3 @@
-use alloy::json_abi::Function;
 use candid::{CandidType};
 use evm_rpc_types::{Hex32, Nat256};
 use serde::{Deserialize, Serialize};
