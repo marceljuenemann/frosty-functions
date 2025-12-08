@@ -4,24 +4,37 @@ use std::time::Duration;
 
 use alloy::signers::icp::IcpSigner;
 use candid::{CandidType};
-use evm_rpc_types::Nat256;
 use ic_cdk_timers::set_timer;
 use wasmi::WasmParams;
 use wasmi::{Engine, Module, TypedFunc, core::TrapCode};
 
 use crate::api::{register_constants, register_host_functions};
-use crate::chain::Chain;
-use crate::job::{Commit, JobRequest, LogEntry, LogType};
+use crate::job::{Commit, JobRequest, JobStatus, LogEntry, LogType};
 use crate::signer::signer_for_address;
+use crate::storage::{get_function, update_job};
 
 const FUEL_PER_BATCH: u64 = 1_000_000;
 
 pub fn schedule_job(job_request: &JobRequest) {
+    let function = get_function(job_request.function_hash.to_vec());
+    if function.is_none() {
+        update_job(&job_request, |job| {
+            ic_cdk::println!("Failed to fetch WASM binary for job {:?}", job_request.on_chain_id);
+            job.status = JobStatus::Failed("No WASM binary found for function".to_string());
+        });
+        return;
+    }
+    
     // Schedule execution of the job in a new IC message in case it panics.
     // TODO: Don't schedule more than X jobs at once.
     let job_request = job_request.clone();
     let timer_id = set_timer(Duration::from_secs(0), async move {
-        ic_cdk::println!("Starting execution of job {:?} on chain {:?}", job_request.on_chain_id, job_request.chain);
+        update_job(&job_request, |job| {
+            ic_cdk::println!("Starting execution of job {:?} on chain {:?}", job_request.on_chain_id, job_request.chain);
+            job.status = JobStatus::Executing
+        });
+
+        let wasm = function.unwrap().definition.binary;
     });
 }
 
@@ -42,21 +55,17 @@ struct AsyncTask {
 }
 
 // TODO: Remove async
-pub async fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionResult, String> {
+pub async fn execute_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionResult, String> {
     let signer = signer_for_address(&request.caller).await?;
-
-    let mut execution = JobExecution::init(request.clone(), wasm, true, signer)?;
+    // TODO: Maybe pass int ExecutionContext
+    let mut execution = JobExecution::init(request.clone(), wasm, false, signer)?;
     // TODO: Commit after errors.
     execution.call_by_name("main".to_string())?;
 
-    // TODO: Start all async tasks before commiting.
+    // TODO: Start all async tasks before commiting?
+    // TODO: with_commit rather than manual commit calls.
+    // TODO: Probably need a on_commit callback for async functions with multiple commits.
     let mut commits = vec![execution.commit("main()".to_ascii_lowercase())?];
-
-    /*
-    if execution.store.data_mut().async_tasks.len() > 0 {
-        return Err("Async callbacks not supported in simulation yet".to_string());
-    }
-    */
 
     while !execution.store.data().async_tasks.is_empty() {
         ic_cdk::println!("Processing {} async tasks...", execution.store.data().async_tasks.len());
@@ -71,6 +80,10 @@ pub async fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionR
     }
 
     Ok(ExecutionResult { commits })
+}
+
+pub async fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionResult, String> {
+    Err("Not implemented yet".to_string())
 }
 
 /// Runtime state for a job execution. All methods are synchronous and the caller is expected

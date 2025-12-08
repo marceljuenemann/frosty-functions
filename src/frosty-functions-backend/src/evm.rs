@@ -65,7 +65,7 @@ fn job_from_event(chain: &EvmChain, event: Log) -> Result<JobRequest, String> {
         transaction_hash: event.transaction_hash.map(|v| v.0.into()),
         on_chain_id: Some(Nat256::from_be_bytes(event.inner.jobId.to_be_bytes())),
         caller: crate::chain::Address::EvmAddress(event.inner.caller.0.0.into()),
-        function_hash: <[u8; 32]>::from(event.inner.functionId),
+        function_hash: event.inner.functionId.0.to_vec(),
         data: event.inner.data.data.to_vec(),
         gas_payment: Nat256::from_be_bytes(event.inner.gasPayment.to_be_bytes()),
     };

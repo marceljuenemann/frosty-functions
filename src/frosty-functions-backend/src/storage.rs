@@ -44,7 +44,7 @@ pub fn get_function(id: FunctionId) -> Option<FunctionState> {
 pub fn create_job(request: JobRequest) -> bool {
     JOBS.with(|p| {
         let mut jobs = p.borrow_mut();
-        let key = request.clone().into();
+        let key = (&request).into();
         if jobs.contains_key(&key) {
             false
         } else {
@@ -62,6 +62,16 @@ pub fn get_job(chain: &Chain, job_id: Nat) -> Option<Job> {
     JOBS.with(|p| p.borrow_mut().get(&key))
 }
 
+pub fn update_job<R>(job: &JobRequest, f: impl FnOnce(&mut Job) -> R) -> R {
+    JOBS.with(move |p| {
+        let key: JobKey = job.into();
+        let mut job = p.borrow_mut().get(&key).clone().expect("Job not found");
+        let result = f(&mut job);
+        p.borrow_mut().insert(key, job);
+        result
+    })
+}
+
 /// Cross-chain Job ID.
 #[derive(Debug, Deserialize, Clone, CandidType, Ord, PartialOrd, PartialEq, Eq)]
 struct JobKey {
@@ -69,11 +79,11 @@ struct JobKey {
     pub on_chain_id: Nat,
 }
 
-impl Into<JobKey> for JobRequest {
+impl Into<JobKey> for &JobRequest {
     fn into(self) -> JobKey {
         JobKey {
-            chain: self.chain,
-            on_chain_id: self.on_chain_id.map(|nat| nat.into())
+            chain: self.chain.clone(),
+            on_chain_id: self.on_chain_id.clone().map(|nat| nat.into())
                 .expect("Can only store Jobs with on_chain_id set"),
         }
     }

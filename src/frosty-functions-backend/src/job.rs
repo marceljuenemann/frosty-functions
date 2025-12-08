@@ -1,8 +1,9 @@
+use alloy::json_abi::Function;
 use candid::{CandidType};
 use evm_rpc_types::{Hex32, Nat256};
 use serde::{Deserialize, Serialize};
 
-use crate::{chain::{Address, Chain}};
+use crate::{chain::{Address, Chain}, repository::FunctionId};
 
 /// Request for executing a function. Currently these are created from EVM logs,
 /// but in the future they could also come from other sources such as other chains,
@@ -24,7 +25,7 @@ pub struct JobRequest {
     /// Caller address.
     pub caller: Address,
     /// SHA-256 of the wasm of the function that should be executed.
-    pub function_hash: [u8; 32],
+    pub function_hash: FunctionId,
     /// Arbitrary payload passed to the function
     pub data: Vec<u8>,
     /// Gas payment forwarded with the call in the native currency of the calling chain.

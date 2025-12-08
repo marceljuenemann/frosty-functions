@@ -8,9 +8,9 @@ pub type FunctionId = Vec<u8>; // Keccak256 hash (32 bytes) of the function bina
 
 #[derive(Clone, CandidType, Debug, Deserialize)]
 pub struct FunctionDefinition {
-    binary: Vec<u8>,
-    source: String,
-    compiler: String,
+    pub binary: Vec<u8>,
+    pub source: String,
+    pub compiler: String,
 }
 
 #[derive(CandidType, Clone, Debug, Deserialize)]
