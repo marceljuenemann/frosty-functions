@@ -11,17 +11,14 @@ use wasmi::{Engine, Module, TypedFunc, core::TrapCode};
 use crate::api::{register_constants, register_host_functions};
 use crate::job::{Commit, JobRequest, JobStatus, LogEntry, LogType};
 use crate::signer::signer_for_address;
-use crate::storage::{get_function, update_job};
+use crate::storage::{get_function, update_job, update_job_status};
 
 const FUEL_PER_BATCH: u64 = 1_000_000;
 
 pub fn schedule_job(job_request: &JobRequest) {
     let function = get_function(job_request.function_hash.to_vec());
     if function.is_none() {
-        update_job(&job_request, |job| {
-            ic_cdk::println!("Failed to fetch WASM binary for job {:?}", job_request.on_chain_id);
-            job.status = JobStatus::Failed("No WASM binary found for function".to_string());
-        });
+        update_job_status(&job_request, JobStatus::Failed("No WASM binary found for function".to_string()));
         return;
     }
     
@@ -29,12 +26,12 @@ pub fn schedule_job(job_request: &JobRequest) {
     // TODO: Don't schedule more than X jobs at once.
     let job_request = job_request.clone();
     let timer_id = set_timer(Duration::from_secs(0), async move {
-        update_job(&job_request, |job| {
-            ic_cdk::println!("Starting execution of job {:?} on chain {:?}", job_request.on_chain_id, job_request.chain);
-            job.status = JobStatus::Executing
-        });
-
         let wasm = function.unwrap().definition.binary;
+        let result = execute_job(job_request, &wasm).await;
+        // TODO: Handle errors properly here. Ideally change to void return type.
+        if result.is_err() {
+            ic_cdk::println!("Job execution failed: {}", result.as_ref().unwrap_err());
+        }
     });
 }
 
@@ -55,7 +52,8 @@ struct AsyncTask {
 }
 
 // TODO: Remove async
-pub async fn execute_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionResult, String> {
+pub async fn execute_job(request: JobRequest, wasm: &[u8]) -> Result<(), String> {
+    update_job_status(&request, JobStatus::Executing);
     let signer = signer_for_address(&request.caller).await?;
     // TODO: Maybe pass int ExecutionContext
     let mut execution = JobExecution::init(request.clone(), wasm, false, signer)?;
@@ -79,7 +77,9 @@ pub async fn execute_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionRe
         commits.push(execution.commit(format!("Task #{}: {}", task.id, task.description))?);
     }
 
-    Ok(ExecutionResult { commits })
+    // TODO: Handled errors
+    update_job_status(&request, JobStatus::Completed);
+    Ok(())
 }
 
 pub async fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<ExecutionResult, String> {

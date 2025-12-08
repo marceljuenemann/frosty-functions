@@ -7,7 +7,7 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 
 use crate::chain::Chain;
-use crate::job::{Job, JobRequest};
+use crate::job::{Job, JobRequest, JobStatus};
 use crate::repository::{FunctionId, FunctionState};
 
 type Memory = VirtualMemory<DefaultMemoryImpl>;
@@ -69,6 +69,13 @@ pub fn update_job<R>(job: &JobRequest, f: impl FnOnce(&mut Job) -> R) -> R {
         let result = f(&mut job);
         p.borrow_mut().insert(key, job);
         result
+    })
+}
+
+pub fn update_job_status(job: &JobRequest, status: JobStatus) {
+    update_job(job, |job| {
+        ic_cdk::println!("Updating job status to {:?} for job {:?}", status, job.request.on_chain_id);
+        job.status = status;
     })
 }
 
