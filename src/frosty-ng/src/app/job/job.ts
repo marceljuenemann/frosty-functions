@@ -21,7 +21,8 @@ export class JobComponent {
     if (!chain || isNaN(jobId)) {
       this.job.set('notfound');
     } else {
-      this.service.getJob(chain, jobId).then((job) => {
+      // TODO: Unsubscribe
+      this.service.watchJob(chain, jobId).subscribe((job) => {
         this.job.set(job ?? 'notfound');
       });
     }

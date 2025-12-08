@@ -6,6 +6,7 @@ import { Actor, ActorMethodMappedExtended, ActorSubclass, HttpAgent } from '@icp
 import { FROSTY_SOURCES, RUNTIME_SOURCE } from '../../../assembly/sources';
 import { decodeHex, encodeBase64, encodeHex } from './util';
 import { TransactionReceipt } from 'ethers';
+import { interval, Observable, switchMap, takeUntil, takeWhile } from 'rxjs';
 
 export type CompilationResult = {
   success: true
@@ -176,7 +177,19 @@ export class FrostyFunctionService {
     const result: Job[] = await response.result;
     if (!result.length) return null;
     const job = result[0];
+    console.log("Fetched job:", job);
     return job;
+  }
+
+  /**
+   * Watches the given job until its status is either Completed or Failed.
+   */
+  watchJob(chain: Chain, jobId: number): Observable<Job | null> {
+    const pollInterval = 1000;  // Poll every second
+    return interval(pollInterval).pipe(
+      switchMap(() => this.getJob(chain, jobId)),
+      takeWhile(job => !!(job && !('Completed' in job.status) && !("Failed" in job.status)), true)
+    );
   }
 
   // TODO: Move into a config file, or fetch from the backend.

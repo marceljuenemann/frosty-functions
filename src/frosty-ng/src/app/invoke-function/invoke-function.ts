@@ -1,5 +1,5 @@
 import { Component, input, signal } from '@angular/core';
-import { Chain, FunctionState, JobRequest } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
+import { Chain, FunctionState, Job, JobRequest } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
 import { SignerService } from '../signer';
 import { TransactionReceipt, TransactionResponse } from 'ethers';
 import { FrostyFunctionService } from '../frosty-function-service';
@@ -22,7 +22,7 @@ export class InvokeFunctionComponent {
   // There's three UI states for each step: null (not started), 'pending', and a value (completed).
   transactionId = signal<'pending' | string | null>(null);
   blockNumber = signal<'pending' | string | null>(null);
-  jobId = signal<'pending' | { chain: Chain, id: bigint } | null>(null);
+  job = signal<'pending' | Job | null>(null);
   error = signal<string | null>(null);
 
   // TODO: Set based on chain ID
@@ -36,7 +36,7 @@ export class InvokeFunctionComponent {
   async runFunction() {
     this.transactionId.set(null);
     this.blockNumber.set(null);
-    this.jobId.set(null);
+    this.job.set(null);
     this.error.set(null);
 
     const tx = await this.submitTransaction();
@@ -80,18 +80,25 @@ export class InvokeFunctionComponent {
   }
 
   private async indexTransaction(receipt: TransactionReceipt): Promise<void> {
-    this.jobId.set('pending');
+    this.job.set('pending');
     try {
       const jobRequest = await this.frostyFunctionService.indexTransaction(CHAIN, receipt);
-      this.jobId.set({ chain: CHAIN, id: jobRequest.on_chain_id[0]! });
+      this.frostyFunctionService.watchJob(CHAIN, Number(jobRequest.on_chain_id[0])).subscribe((job) => {
+        this.job.set(job);
+      });
     } catch (e) {
       this.error.set(`Indexing transaction failed: ${e}`);
-      this.jobId.set(null);
+      this.job.set(null);
       throw e;
     }
   }
 
   chainId(chain: Chain): number {
     return this.frostyFunctionService.chainId(chain);
+  }
+
+  // TODO: Move somewhere shared.
+  jobStatus(job: Job): string {
+    return Object.keys(job.status)[0].toLowerCase();
   }
 }

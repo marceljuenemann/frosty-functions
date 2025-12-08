@@ -37,20 +37,53 @@
   </div>
 }
 
-@let jobId = this.jobId();
-@if (jobId === 'pending') {
+@let job = this.job();
+@if (job === 'pending') {
   <div class="mb-3">
     <div class="alert alert-info" role="alert">
       <b>Waiting for canister to index and verify transaction...</b>
     </div>
   </div>
-} @else if (jobId) {
+} @else if (job) {
   <div class="mb-3">
     <div class="alert alert-success" role="alert">
-      <b>Canister verified transaction and created job.</b>&nbsp;
-      Job Id: {{ jobId.id }}&nbsp;
-      <a href="/chains/eip155:{{ this.chainId(jobId.chain) }}/jobs/{{ jobId.id }}" target="_blank">View status and logs</a>
+      <b>Canister verified transaction and created job.</b>
     </div>
+  </div>
+  <div class="mb-3">
+    @switch (jobStatus(job)) {
+      @case ('pending') {
+        <div class="alert alert-secondary" role="alert">
+          <b>Job Status: Not started</b>&nbsp;
+          <a href="/chains/eip155:{{ this.chainId(job.request.chain) }}/jobs/{{ job.request.on_chain_id }}" target="_blank">View detailed logs</a>
+        </div>
+      }
+      @case ('executing') {
+        <div class="alert alert-info" role="alert">
+          <b>Job Status: Executing</b>&nbsp;
+          <a href="/chains/eip155:{{ this.chainId(job.request.chain) }}/jobs/{{ job.request.on_chain_id }}" target="_blank">View detailed logs</a>
+        </div>
+      }
+      @case ('waiting') {
+        <div class="alert alert-info" role="alert">
+          <b>Job Status: Waiting for timer</b>&nbsp;
+          <a href="/chains/eip155:{{ this.chainId(job.request.chain) }}/jobs/{{ job.request.on_chain_id }}" target="_blank">View detailed logs</a>
+        </div>
+      }
+      @case ('completed') {
+        <div class="alert alert-success" role="alert">
+          <b>Job Status: Completed</b>&nbsp;
+          <a href="/chains/eip155:{{ this.chainId(job.request.chain) }}/jobs/{{ job.request.on_chain_id }}" target="_blank">View detailed logs</a>
+        </div>
+      }
+      @case ('failed') {
+        <div class="alert alert-danger" role="alert">
+          <b>Job Status: Failed</b>&nbsp;
+          Reason: {{ $any(job.status).Failed }}
+          <a href="/chains/eip155:{{ this.chainId(job.request.chain) }}/jobs/{{ job.request.on_chain_id }}" target="_blank">View detailed logs</a>
+        </div>
+      }
+    }
   </div>
 }
 
