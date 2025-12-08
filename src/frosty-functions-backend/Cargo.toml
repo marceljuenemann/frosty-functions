@@ -21,6 +21,7 @@ anyhow = "1.0.86"
 candid = "0.10"
 # Only for Nat256, we use ic-alloy for RPCs  
 evm_rpc_types = { version = "3.0" } # , features = ["alloy"] }
+futures = "0.3.31"
 hex = "0.4"
 ic-cdk = "0.19"
 ic-stable-structures = "0.7.2"

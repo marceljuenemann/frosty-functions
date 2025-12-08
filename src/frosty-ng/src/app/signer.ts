@@ -36,7 +36,8 @@ export class SignerService {
   private bridgeAddress(chainId: number): string {
     switch (chainId) {
       case 31337:
-        return '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+        return '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
+        //return '0x5FbDB2315678afecb367f032d93F642f64180aa3';
       case 42161:  // Arbitrum One
       case 421614:  // Arbitrum Sepolia
         return '0xe712A7e50abA019A6d225584583b09C4265B037B';

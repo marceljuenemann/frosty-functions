@@ -43,6 +43,7 @@ impl Execution {
         let mut context = ExecutionContext {
             env: Box::new(env),
             commit_context: None,
+            async_tasks: Vec::new(),
         };
         context.commit_begin();  // Can't use with_commit here because ownership will move.
 
@@ -129,7 +130,8 @@ impl Execution {
         }
     }
 
-    fn ctx(&mut self) -> &mut ExecutionContext {
+    // TODO: Make private
+    pub fn ctx(&mut self) -> &mut ExecutionContext {
         self.store.data_mut()
     }
 }
@@ -145,6 +147,8 @@ pub struct ExecutionResult {
 pub struct ExecutionContext {
     env: Box<dyn RuntimeEnvironment>,
     commit_context: Option<CommitContext>,
+    // Async tasks that are pending.
+    pub async_tasks: Vec<AsyncTask>,
 }
 
 impl ExecutionContext {
@@ -163,7 +167,7 @@ impl ExecutionContext {
         future: Pin<Box<dyn Future<Output = AsyncResult>>>,
     ) {
         self.log(format!("Queued AsyncTask #{}: {}", id, description));
-        self.commit_context().async_tasks.push(AsyncTask {
+        self.async_tasks.push(AsyncTask {
             id,
             description,
             future,
@@ -207,8 +211,6 @@ impl ExecutionContext {
 pub struct CommitContext {
     // Logs written during the current commit.
     pub logs: Vec<LogEntry>,
-    // Async tasks to schedule.
-    pub async_tasks: Vec<AsyncTask>,
     // Shared buffer that the guest can read using copy_shared_buffer.
     pub shared_buffer: Vec<u8>,
 }

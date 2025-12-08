@@ -1401,6 +1401,7 @@ dependencies = [
  "anyhow",
  "candid",
  "evm_rpc_types",
+ "futures",
  "getrandom 0.2.16",
  "hex",
  "ic-cdk",

@@ -1,9 +1,13 @@
+use std::future::Future;
+use std::pin::Pin;
 use std::time::Duration;
 
 use alloy::signers::icp::IcpSigner;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use ic_cdk_timers::set_timer;
 
-use crate::runtime::{Commit, JobRequest, JobStatus, RuntimeEnvironment};
+use crate::runtime::{AsyncResult, Commit, JobRequest, JobStatus, RuntimeEnvironment};
 use crate::runtime::{Execution};
 use crate::signer::signer_for_address;
 use crate::storage::{get_function, update_job_status};
@@ -34,9 +38,40 @@ pub async fn execute_job(request: JobRequest, wasm: &[u8]) -> Result<(), String>
     let env = ExecutionEnvironment {
         job_request: request.clone(),
         caller_wallet: signer_for_address(&request.caller).await?,
+        futures: FuturesUnordered::new(),
     };
 
-    let execution = Execution::run_main(wasm, env)?;
+    let mut execution = Execution::run_main(wasm, env)?;
+    ic_cdk::println!("run_main returned");
+
+    let mut futures = FuturesUnordered::new();
+    loop {
+        // TODO: Looks like this could just go into Execution::run_loop() or similar. 
+        // In the Future it will need to return a continuation token or similar.
+        // After a timer, could also just invoke run_loop, which exists immediately if
+        // the loop is already running. At the end of the loop we check whether all "threads"
+        // finished, or not.
+
+        // Importantly, we should have FuturesUnordered as well as a queue for AsyncResults.
+        // Then we can choose not to invoke the callback unless we have enough instructions left.
+        if !execution.ctx().async_tasks.is_empty() {
+            ic_cdk::println!("Processing async tasks: {}", execution.ctx().async_tasks.len());
+            for task in execution.ctx().async_tasks.drain(..) {
+                futures.push(task.future);
+            }
+        }
+
+        ic_cdk::println!("Awaiting next future. Count: {}", futures.len());
+        match futures.next().await {
+            Some(result) => {
+                println!("Finished future");
+            },
+            None => {
+                println!("No more futures!");
+                break;
+            }
+        }
+    }
 
     // TODO: Spawn and handle all async tasks now
     /*
@@ -60,6 +95,7 @@ pub async fn execute_job(request: JobRequest, wasm: &[u8]) -> Result<(), String>
 }
 
 struct ExecutionEnvironment {
+    pub futures: FuturesUnordered<Pin<Box<dyn Future<Output = AsyncResult> + 'static>>>,
     job_request: JobRequest,
     caller_wallet: IcpSigner,
 }
@@ -73,6 +109,13 @@ impl RuntimeEnvironment for ExecutionEnvironment {
         crate::storage::store_commit(&self.job_request, &commit)
             .expect("Failed to store commit");
     }
+
+    /*
+    fn spawn(&self, future: impl Future<Output = AsyncResult> + 'static) {
+        // ic_cdk::futures::spawn_migratory(future);
+        self.futures.push(Box::pin(future));
+    }
+    */
 
     fn caller_wallet(&self) -> IcpSigner { 
         self.caller_wallet.clone()
