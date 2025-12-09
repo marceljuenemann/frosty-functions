@@ -1,12 +1,12 @@
 import { Component, HostListener, signal } from '@angular/core';
 import { MonacoEditor } from '../monaco-editor/monaco-editor';
-import { CompilationResult, DeploymentResult, FrostyFunctionService, SimulationResult } from '../frosty-function-service';
+import { CompilationResult, DeploymentResult, FrostyFunctionService, SimulationResultExt } from '../frosty-function-service';
 import { LogViewer } from '../log-viewer/log-viewer';
 import exampleCode from '../../../../assembly/example.as'
 
 type SimulationState =
   { status: 'pending' } |
-  { status: 'done', result: SimulationResult } |
+  { status: 'done', result: SimulationResultExt } |
   { status: 'error', error: Error };
 
 

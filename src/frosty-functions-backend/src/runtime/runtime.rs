@@ -145,13 +145,6 @@ impl Execution {
     }    
 }
 
-// TODO: This might become a SimulationResult?
-#[derive(Clone, Debug, CandidType)]
-pub struct ExecutionResult {
-    pub commits: Vec<Commit>,
-    // Add other fields as needed (gas used, state changes, etc.)
-}
-
 /// Runtime context available to host functions during execution.
 pub struct ExecutionContext {
     env: Box<dyn RuntimeEnvironment>,

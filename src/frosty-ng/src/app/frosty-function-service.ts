@@ -1,12 +1,12 @@
-import { Injectable, Signal, signal } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { idlFactory } from 'declarations/frosty-functions-backend';
 import asc from "assemblyscript/asc";
-import { _SERVICE, ExecutionResult, JobRequest, FunctionDefinition, DeployResult, FunctionState, Chain, Result_1, Result, Job, Commit } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
+import { _SERVICE, JobRequest, FunctionDefinition, DeployResult, FunctionState, Chain, Result_1, Result, Job, Commit, SimulationResult } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
 import { Actor, ActorMethodMappedExtended, ActorSubclass, HttpAgent } from '@icp-sdk/core/agent';
 import { FROSTY_SOURCES, RUNTIME_SOURCE } from '../../../assembly/sources';
-import { decodeHex, encodeBase64, encodeHex } from './util';
+import { decodeHex, encodeHex } from './util';
 import { TransactionReceipt } from 'ethers';
-import { interval, Observable, switchMap, takeUntil, takeWhile } from 'rxjs';
+import { interval, Observable, switchMap, takeWhile } from 'rxjs';
 
 export type CompilationResult = {
   success: true
@@ -19,7 +19,7 @@ export type CompilationResult = {
   logs: string
 }
 
-export interface SimulationResult extends ExecutionResult {
+export interface SimulationResultExt extends SimulationResult {
   canisterId: string
 }
 
@@ -108,7 +108,7 @@ export class FrostyFunctionService {
    * Invokes the Frosty Function backend to simulate the function with
    * the given WASM binary.
    */
-  async simulate(wasm: Uint8Array): Promise<SimulationResult> {
+  async simulate(wasm: Uint8Array): Promise<SimulationResultExt> {
     // TODO: Configurable request.
     const request: JobRequest = {
       chain: { Evm: { Localhost: null } },
@@ -122,14 +122,11 @@ export class FrostyFunctionService {
       gas_payment: BigInt(0),
     };
 
-    const actor = await this.actor();
-    // TODO: Remove temp_ again
-    const response = await actor.temp_simulate_execution(request, wasm);
-    const result = await response.result;
-    if ('Err' in result) {
-      throw new Error(`${result.Err}`);
+    const response = await (await (await this.actor()).simulate_execution(request, wasm)).result;
+    if ('Err' in response) {
+      throw new Error(`${response.Err}`);
     }
-    return { canisterId: CANISTER_ID, ...result.Ok };
+    return { canisterId: CANISTER_ID, ...response.Ok }
   }
 
   async deploy(definition: FunctionDefinition): Promise<DeploymentResult> {

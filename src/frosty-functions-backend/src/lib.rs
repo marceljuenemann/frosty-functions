@@ -12,7 +12,7 @@ use alloy::{signers::Signer};
 use chain::{Chain};
 use evm_rpc_types::Nat256;
 
-use crate::{execution::schedule_job, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, runtime::{Commit, ExecutionResult, Job, JobRequest}, state::{init_state, read_state}};
+use crate::{execution::schedule_job, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, runtime::{Commit, Job, JobRequest}, simulation::SimulationResult, state::{init_state, read_state}};
 
 #[ic_cdk::update]
 async fn init() {
@@ -67,15 +67,8 @@ async fn index_block(chain: Chain, block_number: u64) -> Result<Vec<JobRequest>,
 }
 
 #[ic_cdk::query]
-fn simulate_execution(request: JobRequest, wasm: Vec<u8>) -> Result<ExecutionResult, String> {
-    // crate::execution::simulate_job(request, &wasm)
-    Err("simulate_execution is disabled temporarily".to_string())
-}
-
-// TDOO: Delete once execute_job is properly implemented.
-#[ic_cdk::update]
-async fn temp_simulate_execution(request: JobRequest, wasm: Vec<u8>) -> Result<ExecutionResult, String> {
-    crate::simulation::simulate_job(request, &wasm).await
+fn simulate_execution(request: JobRequest, wasm: Vec<u8>) -> Result<SimulationResult, String> {
+    crate::simulation::simulate_job(request, &wasm)
 }
 
 // Enable Candid export
