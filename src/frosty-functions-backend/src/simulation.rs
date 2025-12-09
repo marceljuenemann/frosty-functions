@@ -19,28 +19,41 @@ pub fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<SimulationResult
         job_request: request.clone(),
         commits: commits.clone(),
     };
-
     let mut execution = Execution::run_main(wasm, env)?;
-    /*
-    loop {
-        ic_cdk::println!("Awaiting next future");  // TODO: remove
-        match execution.next_future().await {
-            Some(result) => {
-                execution.callback(result)?;
-            },
-            None => {
-                println!("No more futures!");
-                break;
-            }
-        }
-    }
-    */
 
+    // spawn_017_compat executes the future until the first actual cansiter call. Since we
+    // shouldn't actually have any cansiter calls during simulation, the following
+    // block should execute synchronously.
+    let result_local: Rc<RefCell<Option<Result<(), String>>>> = Rc::new(RefCell::new(None));
+    let result_async = result_local.clone();
+    ic_cdk::futures::spawn_017_compat(async move {
+        let result = event_loop(&mut execution).await;
+        result_async.borrow_mut().replace(result);
+    });
+
+    let result = result_local.borrow().clone().expect("Simulation did not complete synchronously");
     let commits = commits.borrow().clone();
     Ok(SimulationResult {
         commits,
-        error: None,
+        error: result.err(),
     })
+}
+
+async fn event_loop(execution: &mut Execution) -> Result<(), String> {
+    loop {
+        let async_result = execution.next_async_result().await;
+        match async_result {
+            Some(result) => {
+                let callback_result = execution.callback(result);
+                if callback_result.is_err() {
+                    return Err(format!("Error during simulation: {}", callback_result.unwrap_err()));
+                }
+            },
+            None => {
+                return Ok(());
+            }
+        }
+    }
 }
 
 struct SimulationEnv {
@@ -49,6 +62,10 @@ struct SimulationEnv {
 }
 
 impl RuntimeEnvironment for SimulationEnv {
+    fn is_simulation(&self) -> bool {
+        true
+    }
+
     fn job_request(&self) -> &JobRequest {
         &self.job_request
     }

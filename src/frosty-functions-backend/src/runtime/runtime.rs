@@ -1,10 +1,11 @@
+use std::cell::RefCell;
 use std::future::Future;
 use std::pin::Pin;
+use std::rc::Rc;
 
-use candid::{CandidType};
-use futures::stream::{FuturesUnordered, Next};
+use futures::stream::{FuturesUnordered};
 use futures::StreamExt;
-use wasmi::WasmParams;
+use wasmi::{Linker, WasmParams};
 use wasmi::{Engine, Module, TypedFunc, core::TrapCode};
 
 use crate::runtime::api::{register_constants, register_host_functions};
@@ -15,8 +16,7 @@ const FUEL_PER_BATCH: u64 = 1_000_000;
 /// Runtime state for a job execution. All methods are synchronous and the caller is expected
 /// to handle scheudling of async operations.
 pub struct Execution {
-    // TODO: Make private, expose anything neceessary via methods.
-    pub store: wasmi::Store<ExecutionContext>,
+    store: wasmi::Store<Rc<RefCell<ExecutionContext>>>,
     instance: wasmi::Instance,
     fn_main: TypedFunc<(), ()>,
     fn_resolve: TypedFunc<(i32, i32), ()>,
@@ -33,17 +33,18 @@ impl Execution {
         };
         context.commit_begin();  // Can't use with_commit here because ownership will move.
 
+        let context = Rc::new(RefCell::new(context));
         let mut execution = Self::init(wasm, context)?;
-        execution.ctx().log(format!("Instantiated WASM module"));
+        execution.ctx().borrow_mut().log(format!("Instantiated WASM module"));
         execution.call(execution.fn_main, ())?;
 
-        execution.ctx().commit_end("main()".to_string());
+        execution.ctx().borrow_mut().commit_end("main()".to_string());
         // TODO: Return ExecutionResult of main as well.
         Ok(execution)
     }
 
     /// Instantiates and starts the WASM module.
-    fn init(wasm: &[u8], context: ExecutionContext) -> Result<Self, String> {
+    fn init(wasm: &[u8], context: Rc<RefCell<ExecutionContext>>) -> Result<Self, String> {
         // TODO: Cache the engine instead of recreating it for each execution?
         let mut config = wasmi::Config::default();
         config.consume_fuel(true);
@@ -55,7 +56,7 @@ impl Execution {
         store.set_fuel(FUEL_PER_BATCH).map_err(|e| format!("Failed to set fuel: {}", e))?;
 
         // Create linker with host functions and constants.
-        let mut linker = <wasmi::Linker<ExecutionContext>>::new(module.engine());
+        let mut linker = Linker::new(module.engine());
         register_constants(&mut linker, &mut store)
             .map_err(|e| format!("Failed to register constants: {}", e))?;
         register_host_functions(&mut linker, &mut store)
@@ -104,7 +105,7 @@ impl Execution {
             Ok(data) => {
                 let title = format!("Resolving Promise #{}: {}", result.promise_id, result.description);
                 self.with_commit(title, |exec| {
-                    exec.ctx().commit_context().shared_buffer = data.clone();
+                    exec.ctx().borrow_mut().commit_context().shared_buffer = data.clone();
                     exec.call(exec.fn_resolve, (result.promise_id, data.len() as i32))?;
                     Ok(())
                 })
@@ -112,10 +113,10 @@ impl Execution {
             Err(err) => {
                 let title = format!("Rejecting Promise #{}: {}", result.promise_id, result.description);
                 self.with_commit(title, |exec| {
-                    exec.ctx().log(format!("Promise rejected with error: {}", err));
+                    exec.ctx().borrow_mut().log(format!("Promise rejected with error: {}", err));
                     let err_bytes = err.as_bytes().to_vec();  // TODO: Convert to UTF-16?
                     let err_len = err_bytes.len() as i32;
-                    exec.ctx().commit_context().shared_buffer = err_bytes;
+                    exec.ctx().borrow_mut().commit_context().shared_buffer = err_bytes;
                     exec.call(exec.fn_reject, (result.promise_id, err_len))?;
                     Ok(())
                 })
@@ -123,24 +124,24 @@ impl Execution {
         }
     }
 
-    /// Returns a Future that resolves to an AsyncResult when awaited.
-    /// Note that FuturesUnordered is used internally, so that all pending futures
+    /// Awaits the pending async tasks using FuturesUnordered, so that all pending futures
     /// are polled fairly.
-    pub fn next_future(&mut self) -> Next<'_, FuturesUnordered<AsyncFuture>> {
-        self.ctx().pending_futures.next()
+    pub async fn next_async_result(&mut self) -> Option<AsyncResult> {
+        self.ctx().borrow_mut().pending_futures.next().await
     }
 
-    fn ctx(&mut self) -> &mut ExecutionContext {
-        self.store.data_mut()
+    // TODO: Return reference instead. Also have ctx_mut() for mutable access.
+    fn ctx(&mut self) -> Rc<RefCell<ExecutionContext>> {
+        self.store.data().clone()
     }
 
     /// Executes the given function within a CommitContext. Many operations such as logging
     /// or scheduling async tasks require a CommitContext to be present. After execution,
     /// `commit()` is called on the RuntimeEnvionment to persist the commit.
     fn with_commit<R>(&mut self, title: String, f: impl FnOnce(&mut Self) -> R) -> R {
-        self.ctx().commit_begin();
+        self.ctx().borrow_mut().commit_begin();
         let result = f(self);
-        self.ctx().commit_end(title);
+        self.ctx().borrow_mut().commit_end(title);
         result
     }    
 }
@@ -166,13 +167,13 @@ impl ExecutionContext {
     pub fn log(&mut self, message: String) {
         self.commit_context().logs.push(LogEntry { level: LogType::System, message });
     }
-
+    
     pub fn queue_task(
         &mut self,
         // TODO: Generate ID instead.
         id: i32,
         description: String,
-        future: Pin<Box<dyn Future<Output = Result<Vec<u8>, String>>>>,
+        future: AsyncFutureInner,
     ) {
         self.log(format!("Spawned Promise #{}: {}", id, description));
         self.pending_futures.push(Box::pin(async move {
@@ -219,7 +220,9 @@ pub struct AsyncResult {
     promise_id: i32,
     description: String,
     // TODO: Consider replacing String with (ErrorCode, String)?
-    result: Result<Vec<u8>, String>
+    result: AsyncResultInner
 }
 
 pub type AsyncFuture = Pin<Box<dyn Future<Output = AsyncResult> + 'static>>;
+type AsyncResultInner = Result<Vec<u8>, String>;
+type AsyncFutureInner = Pin<Box<dyn Future<Output = AsyncResultInner> + 'static>>;

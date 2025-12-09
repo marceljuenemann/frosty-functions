@@ -1,13 +1,9 @@
-use std::future::Future;
-use std::pin::Pin;
 use std::time::Duration;
 
 use alloy::signers::icp::IcpSigner;
-use futures::stream::FuturesUnordered;
-use futures::StreamExt;
 use ic_cdk_timers::set_timer;
 
-use crate::runtime::{AsyncResult, Commit, JobRequest, JobStatus, RuntimeEnvironment};
+use crate::runtime::{Commit, JobRequest, JobStatus, RuntimeEnvironment};
 use crate::runtime::{Execution};
 use crate::signer::signer_for_address;
 use crate::storage::{get_function, update_job_status};
@@ -46,7 +42,7 @@ pub async fn execute_job(request: JobRequest, wasm: &[u8]) -> Result<(), String>
 
     loop {
         ic_cdk::println!("Awaiting next future");  // TODO: remove
-        match execution.next_future().await {
+        match execution.next_async_result().await {
             Some(result) => {
                 execution.callback(result)?;
             },
@@ -68,6 +64,10 @@ struct ExecutionEnvironment {
 }
 
 impl RuntimeEnvironment for ExecutionEnvironment {
+    fn is_simulation(&self) -> bool {
+        false
+    }
+
     fn job_request(&self) -> &JobRequest {
         &self.job_request
     }

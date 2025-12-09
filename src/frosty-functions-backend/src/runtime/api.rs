@@ -1,6 +1,10 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use alloy::primitives::keccak256;
 use alloy::signers::Signer;
 use wasmi::{Caller, Error, Func, Global, Linker, Memory, Mutability, Store, Val, errors::LinkerError};
-use crate::runtime::{LogEntry, LogType};
+use crate::runtime::{LogEntry, LogType, RuntimeEnvironment};
 use crate::{Chain, evm::transfer_funds};
 use crate::runtime::runtime::{ExecutionContext};
 
@@ -11,6 +15,26 @@ const BUFFER_MAX_LEN: usize = 10_000_000;
 /// The maximum length of console log messages.
 const CONSOLE_LOG_MAX_LEN: usize = 10_000;
 
+type Ctx = Rc<RefCell<ExecutionContext>>;
+
+macro_rules! ctx {
+    ($caller:expr) => {
+        $caller.data_mut().borrow_mut() as std::cell::RefMut<'_, ExecutionContext>
+    };
+}
+
+macro_rules! env {
+    ($caller:expr) => {
+        ctx!($caller).env();
+    };
+}
+
+macro_rules! job {
+    ($caller:expr) => {
+        env!($caller).job_request();
+    };
+}
+
 macro_rules! log {
     ($caller:expr, $($arg:tt)*) => {
         $caller.data_mut().log(LogType::System, format!($($arg)*));
@@ -18,8 +42,8 @@ macro_rules! log {
 }
 
 /// Registers all constants into the given linker.
-pub fn register_constants(linker: &mut Linker<ExecutionContext>, store: &mut Store<ExecutionContext>) -> Result<(), LinkerError> {
-    let calldata_size = store.data().env().job_request().data.len() as i32;
+pub fn register_constants(linker: &mut Linker<Ctx>, store: &mut Store<Ctx>) -> Result<(), LinkerError> {
+    let calldata_size = env!(store).job_request().data.len() as i32;
     linker.define("❄️", "CALLDATA_SIZE", Global::new(
         &mut *store,
         Val::I32(calldata_size),
@@ -35,7 +59,7 @@ macro_rules! register {
 }
 
 /// Registers all host functions into the given linker.
-pub fn register_host_functions(linker: &mut Linker<ExecutionContext>, store: &mut Store<ExecutionContext>) -> Result<(), LinkerError> {
+pub fn register_host_functions(linker: &mut Linker<Ctx>, store: &mut Store<Ctx>) -> Result<(), LinkerError> {
     linker.define("env", "abort", Func::wrap(&mut *store, abort_host))?;
     linker.define("env", "console.log", Func::wrap(&mut *store, console_log))?;
     linker.define("env", "seed", Func::wrap(&mut *store, seed))?;
@@ -64,24 +88,23 @@ fn seed() -> Result<f64, Error> {
 }
 
 // TODO: Support console.error etc.
-fn console_log(mut caller: Caller<ExecutionContext>, message_ptr: i32) {
+fn console_log(mut caller: Caller<Ctx>, message_ptr: i32) {
     let message = read_utf16_string(&caller, message_ptr, CONSOLE_LOG_MAX_LEN)
         // TODO: Return error?
         .unwrap_or_else(|e| format!("(failed to read log message: {})", e));
-    caller.data_mut().commit_context().logs.push(LogEntry { level: LogType::Default, message: message.clone() });
+    ctx!(caller).commit_context().logs.push(LogEntry { level: LogType::Default, message: message.clone() });
     // TODO: Charge cycles for logs storage.
 }
 
 /// Writes the calldata into the provided buffer, which is expected to be of CALLDATA_SIZE.
-fn calldata(mut caller: Caller<ExecutionContext>, buffer_ptr: i32) -> Result<(), Error> {
-    let calldata = caller.data().env().job_request().data.clone();
+fn calldata(mut caller: Caller<Ctx>, buffer_ptr: i32) -> Result<(), Error> {
+    let calldata = job!(caller).data.clone();
     get_memory(&caller).write(&mut caller, buffer_ptr as usize, &calldata)?;
     Ok(())  // TODO: remove?
 }
 
-fn on_chain_id(caller: Caller<ExecutionContext>) -> i64 {
-    let context = caller.data();
-    if let Some(id) = context.env().job_request().on_chain_id.clone() {
+fn on_chain_id(mut caller: Caller<Ctx>) -> i64 {
+    if let Some(id) = job!(caller).on_chain_id.clone() {
         // TODO: Proper error handling for overflows.
         let id: u64 = id.to_string().parse().unwrap();
         id as i64
@@ -92,10 +115,10 @@ fn on_chain_id(caller: Caller<ExecutionContext>) -> i64 {
 
 /// Writes the caller's wallet address as a UTF-16LE string into the provided buffer.
 /// The buffer is expected to be large enough to hold the address string.
-fn evm_caller_wallet_address(mut caller: Caller<ExecutionContext>, buffer_ptr: i32) -> Result<(), Error> {
-    let address = caller.data().env().caller_wallet().address().to_string();
+fn evm_caller_wallet_address(mut caller: Caller<Ctx>, buffer_ptr: i32) -> Result<(), Error> {
+    let address = env!(caller).caller_wallet().address().to_string();
     ic_cdk::println!("EVM caller wallet address: {}", address);
-    write_utf16_string(&mut caller, &address, buffer_ptr)
+    write_utf16_string(caller, &address, buffer_ptr)
 }
 
 /// Transfers the specified amount of gas tokens to the caller wallet.
@@ -103,14 +126,14 @@ fn evm_caller_wallet_address(mut caller: Caller<ExecutionContext>, buffer_ptr: i
 /// 
 /// TODO: Offer a general transfer_gas function to any address. We'd just need to handle
 /// replacing failing transactions to not cause all future transaction to get stuck.
-fn evm_caller_wallet_deposit(mut caller: Caller<ExecutionContext>, amount: u64, promise_id: i32) -> Result<(), Error> {
-    let evm_chain = match &caller.data().env().job_request().chain {
-        Chain::Evm(id) => id.clone(),
+fn evm_caller_wallet_deposit(mut caller: Caller<Ctx>, amount: u64, promise_id: i32) -> Result<(), Error> {
+    let mut ctx = ctx!(caller);
+    let evm_chain: crate::chain::EvmChain = match ctx.env().job_request().chain.clone() {
+        Chain::Evm(id) => id,
         _ => return Err(Error::new("CallerWallet.deposit can only be used on EVM chains".to_string())),
     };
-    let wallet = caller.data().env().caller_wallet();
-    
-    caller.data_mut().queue_task(
+    let wallet = ctx.env().caller_wallet();
+    ctx.queue_task(
         promise_id,
         format!("CallerWallet.deposit({})", amount),
         // TODO: Move the messy parts into a spawn function.
@@ -132,11 +155,12 @@ fn evm_caller_wallet_deposit(mut caller: Caller<ExecutionContext>, amount: u64, 
 
 /// Signs a EIP-191 message.
 // TOOD: Also expose lower level sign_hash to sign arbitrary hashes.  
-fn evm_caller_wallet_sign_message(mut caller: Caller<ExecutionContext>, message_ptr: i32, promise_id: i32) -> Result<(), Error> {
+fn evm_caller_wallet_sign_message(mut caller: Caller<Ctx>, message_ptr: i32, promise_id: i32) -> Result<(), Error> {
     let message = read_buffer(&caller, message_ptr, BUFFER_MAX_LEN)?;
-    let wallet = caller.data().env().caller_wallet();
+    let mut ctx = ctx!(caller);
+    let wallet = ctx.env().caller_wallet();
     // TODO: Spawn rather than queue task
-    caller.data_mut().queue_task(
+    ctx.queue_task(
         promise_id,
         format!("CallerWallet.signMessage(0x{})", clip_string(&hex::encode(&message), 100)),
         Box::pin(async move {
@@ -149,28 +173,36 @@ fn evm_caller_wallet_sign_message(mut caller: Caller<ExecutionContext>, message_
     Ok(())
 }
 
-fn evm_chain_id(caller: Caller<ExecutionContext>) -> u64 {
-    match &caller.data().env().job_request().chain  {
-        Chain::Evm(id) => crate::evm::evm_chain_id(id.clone()),
+fn evm_chain_id(mut caller: Caller<Ctx>) -> u64 {
+    match job!(caller).chain.clone() {
+        Chain::Evm(id) => crate::evm::evm_chain_id(id),
         _ => 0,
     }
 }
 
-fn ic_raw_rand(mut caller: Caller<ExecutionContext>, promise_id: i32) -> Result<(), Error> {
-    caller.data_mut().queue_task(
+fn ic_raw_rand(mut caller: Caller<Ctx>, promise_id: i32) -> Result<(), Error> {
+    let is_simulation = env!(caller).is_simulation();
+    ctx!(caller).queue_task(
         promise_id,
         "Retrieve verifiable randomness".to_string(),
-        Box::pin(async {
-            ic_cdk::management_canister::raw_rand().await
-                .map_err(|e| format!("Failed to get raw_rand: {}", e))
-        }) 
+        // TODO: Turn into a FnOnce that receives a ctx.
+        Box::pin(async move {
+            if !is_simulation {
+                ic_cdk::management_canister::raw_rand().await
+                    .map_err(|e| format!("Failed to get raw_rand: {}", e))
+            } else {
+                let bytes = ic_cdk::api::time().to_le_bytes();
+                let rand = keccak256(bytes);
+                Ok(rand.to_vec())
+            }
+        })
     );
     Ok(())
 }
 
 // Reads a UTF-16LE encoded string from the guest memory at the given pointer.
 // TODO: What about error handling? Host function should be able to return Result as well?
-fn read_utf16_string(caller: &wasmi::Caller<ExecutionContext>, str_ptr: i32, max_len: usize) -> Result<String, Error> {
+fn read_utf16_string(caller: &wasmi::Caller<Ctx>, str_ptr: i32, max_len: usize) -> Result<String, Error> {
     let bytes = read_buffer(caller, str_ptr, max_len * 2)?;
     let mut u16s = Vec::with_capacity(bytes.len() / 2);
     for chunk in bytes.chunks_exact(2) {
@@ -181,7 +213,7 @@ fn read_utf16_string(caller: &wasmi::Caller<ExecutionContext>, str_ptr: i32, max
 }
 
 /// Writes the given string as UTF-16LE into the guest memory at the given pointer.
-fn write_utf16_string(caller: &mut Caller<ExecutionContext>, str: &String, buffer_ptr: i32) -> Result<(), Error> {
+fn write_utf16_string(mut caller: Caller<Ctx>, str: &String, buffer_ptr: i32) -> Result<(), Error> {
     let bytes: Vec<u8> = str.encode_utf16().flat_map(|unit| unit.to_le_bytes()).collect();
     ic_cdk::println!("Writing UTF-16. length: {}", bytes.len());
     get_memory(&caller).write(caller, buffer_ptr as usize, &bytes)?;
@@ -190,15 +222,15 @@ fn write_utf16_string(caller: &mut Caller<ExecutionContext>, str: &String, buffe
 
 /// Copies the shared buffer into the guest memory at the given pointer.
 /// The guest is expected to have allocated a buffer of the same size.
-fn copy_shared_buffer(mut caller: Caller<ExecutionContext>, buffer_ptr: i32) -> Result<(), Error> {
-    let shared_buffer = caller.data_mut().commit_context().shared_buffer.clone();
-    get_memory(&caller).write(&mut caller, buffer_ptr as usize, &shared_buffer)?;
+fn copy_shared_buffer(mut caller: Caller<Ctx>, buffer_ptr: i32) -> Result<(), Error> {
+    let shared_buffer = ctx!(caller).commit_context().shared_buffer.clone();
+    get_memory(&caller).write(caller, buffer_ptr as usize, &shared_buffer)?;
     Ok(())
 }
 
 /// Reads a buffer from the guest memory at the given pointer.
 /// The length of the buffer is presumed to be in the first 4 bytes before the pointer.
-fn read_buffer(caller: &Caller<ExecutionContext>, ptr: i32, max_len: usize) -> Result<Vec<u8>, Error> {
+fn read_buffer(caller: &Caller<Ctx>, ptr: i32, max_len: usize) -> Result<Vec<u8>, Error> {
     let memory = get_memory(caller);
 
     // Read buffer length stored at (ptr - 4)
@@ -218,7 +250,7 @@ fn read_buffer(caller: &Caller<ExecutionContext>, ptr: i32, max_len: usize) -> R
     Ok(bytes)
 }
 
-fn get_memory(caller: &Caller<ExecutionContext>) -> Memory {
+fn get_memory(caller: &Caller<Ctx>) -> Memory {
     caller
         .get_export("memory")
         .and_then(|ext| ext.into_memory())
