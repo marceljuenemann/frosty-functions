@@ -50,7 +50,13 @@ pub async fn index_block(chain: &EvmChain, block_number: u64) -> Result<Vec<JobR
             job.ok()
         })
         // Create job in storage (if it doesn't exist yet).
-        .filter(|request| create_job(request.clone()))
+        .filter(|request| {
+            if !create_job(request.clone()) {
+                ic_cdk::println!("Job with ID {:?} on Chain {:?} already existed.", request.on_chain_id, chain);
+                return false;
+            }
+            true
+        })
         .collect();
     Ok(job_ids)
 }
@@ -136,6 +142,6 @@ fn bridge_address(chain: &EvmChain) -> Address{
     match chain {
         EvmChain::ArbitrumOne => "0xe712A7e50abA019A6d225584583b09C4265B037B",
         EvmChain::ArbitrumSepolia => "0xe712A7e50abA019A6d225584583b09C4265B037B",
-        EvmChain::Localhost => "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
+        EvmChain::Localhost => "0x5FbDB2315678afecb367f032d93F642f64180aa3"
     }.parse().unwrap()
 }

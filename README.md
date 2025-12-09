@@ -31,9 +31,14 @@ Inspired by [icp-evm-coprocessor-starter](https://github.com/letmejustputthisher
 * Launch https://remix.ethereum.org/
   * Compile Bridge.sol
   * Connect to localhost using Custom - External Http Provider
-  * Deploy contract with e.g.
-    * Owner 0xda824f554c42ecd28a74a037c70fa0b5bf447bb0 (current canister wallet)
+  * Deploy contract with
+    * Owner set to the canister EMV address. Can be retrieved with `get_evm_address()` canister method
+      * Probably 0xda824f554c42ecd28a74a037c70fa0b5bf447bb0
     * MinPaymentWei 100
+  * Update contract address in the code (currently hardcoded)
+    * evm.rs
+    * signer.ts
+    * Address should be 0x5FbDB2315678afecb367f032d93F642f64180aa3 if you used the values from above
   * Invoke functions with e.g.
     * FunctionId "0x2f044fb7f581f6deeace9cd91d68500fcd439b3fe82729771c8b4385522ad576"
     * Data 0xdeadbeef

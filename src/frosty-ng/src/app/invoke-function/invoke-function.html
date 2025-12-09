@@ -37,14 +37,15 @@
   </div>
 }
 
-@let job = this.job();
-@if (job === 'pending') {
+@let job$ = this.job();
+@if (job$ === 'pending') {
   <div class="mb-3">
     <div class="alert alert-info" role="alert">
       <b>Waiting for canister to index and verify transaction...</b>
     </div>
   </div>
-} @else if (job) {
+} @else if (job$) {
+  @let job = (job$ | async)!;  <!-- Ignoring the server returning null here -->
   <div class="mb-3">
     <div class="alert alert-success" role="alert">
       <b>Canister verified transaction and created job.</b>

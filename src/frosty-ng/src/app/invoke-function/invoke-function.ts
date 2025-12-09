@@ -3,6 +3,8 @@ import { Chain, FunctionState, Job, JobRequest } from 'declarations/frosty-funct
 import { SignerService } from '../signer';
 import { TransactionReceipt, TransactionResponse } from 'ethers';
 import { FrostyFunctionService } from '../frosty-function-service';
+import { AsyncPipe } from '@angular/common';
+import { Observable } from 'rxjs';
 
 // TODO: Configurable
 const CHAIN: Chain = { Evm: { Localhost: null } };
@@ -12,7 +14,7 @@ export const SCANNER_URL = 'https://sepolia.arbiscan.io';
 
 @Component({
   selector: 'app-invoke-function',
-  imports: [],
+  imports: [AsyncPipe],
   templateUrl: './invoke-function.html',
   styleUrl: './invoke-function.scss',
 })
@@ -22,7 +24,7 @@ export class InvokeFunctionComponent {
   // There's three UI states for each step: null (not started), 'pending', and a value (completed).
   transactionId = signal<'pending' | string | null>(null);
   blockNumber = signal<'pending' | string | null>(null);
-  job = signal<'pending' | Job | null>(null);
+  job = signal<'pending' | Observable<Job | null> | null>(null);
   error = signal<string | null>(null);
 
   // TODO: Set based on chain ID
@@ -49,7 +51,7 @@ export class InvokeFunctionComponent {
     this.transactionId.set('pending');
     try {
       const calldata = new Uint8Array([]);  // TODO: configure
-      const amount = BigInt(123456);
+      const amount = BigInt(1234567890012345678);
       const chainId = this.frostyFunctionService.chainId(CHAIN);
       const tx = await this.signerService.invokeFrostyFunction(chainId, this.function(), calldata, amount);
       this.transactionId.set(tx.hash);
@@ -83,9 +85,7 @@ export class InvokeFunctionComponent {
     this.job.set('pending');
     try {
       const jobRequest = await this.frostyFunctionService.indexTransaction(CHAIN, receipt);
-      this.frostyFunctionService.watchJob(CHAIN, Number(jobRequest.on_chain_id[0])).subscribe((job) => {
-        this.job.set(job);
-      });
+      this.job.set(this.frostyFunctionService.watchJob(CHAIN, Number(jobRequest.on_chain_id[0])));
     } catch (e) {
       this.error.set(`Indexing transaction failed: ${e}`);
       this.job.set(null);

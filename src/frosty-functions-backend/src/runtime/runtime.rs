@@ -2,29 +2,15 @@ use std::future::Future;
 use std::pin::Pin;
 
 use candid::{CandidType};
+use futures::stream::{FuturesUnordered, Next};
+use futures::StreamExt;
 use wasmi::WasmParams;
 use wasmi::{Engine, Module, TypedFunc, core::TrapCode};
 
 use crate::runtime::api::{register_constants, register_host_functions};
-use crate::runtime::{Commit, JobRequest, LogEntry, LogType, RuntimeEnvironment};
+use crate::runtime::{Commit, LogEntry, LogType, RuntimeEnvironment};
 
 const FUEL_PER_BATCH: u64 = 1_000_000;
-
-/// Return type for async host functions.
-/// 
-/// Guests will have to interpret the byte array depending on the function
-/// that created the SharedPromise.
-/// TODO: Consider replacing String with (ErrorCode, String)?
-pub type AsyncResult = Result<Vec<u8>, String>;
-
-pub struct AsyncTask {
-    // ID created by the guest to identify the task.
-    pub id: i32,
-    // Description of the task for logging purposes.
-    pub description: String,
-    // Future that will produce the result.
-    pub future: Pin<Box<dyn Future<Output = AsyncResult>>>,
-}
 
 /// Runtime state for a job execution. All methods are synchronous and the caller is expected
 /// to handle scheudling of async operations.
@@ -43,7 +29,7 @@ impl Execution {
         let mut context = ExecutionContext {
             env: Box::new(env),
             commit_context: None,
-            async_tasks: Vec::new(),
+            pending_futures: FuturesUnordered::new(),
         };
         context.commit_begin();  // Can't use with_commit here because ownership will move.
 
@@ -112,28 +98,51 @@ impl Execution {
         }
     }
 
-    /// Executes the callback for the given async task.
-    pub fn callback(&mut self, task_id: i32, result: &AsyncResult) -> Result<(), String> {
-        match result {
+    /// Executes the callback for the given AsyncResult.
+    pub fn callback(&mut self, result: AsyncResult) -> Result<(), String> {
+        match result.result {
             Ok(data) => {
-                ic_cdk::println!("Async task #{} completed successfully.", task_id);
-                self.ctx().commit_context().shared_buffer = data.clone();
-                self.call(self.fn_resolve, (task_id, data.len() as i32))?;
-                Ok(())
-                // TODO: commit
+                let title = format!("Resolving Promise #{}: {}", result.promise_id, result.description);
+                self.with_commit(title, |exec| {
+                    exec.ctx().commit_context().shared_buffer = data.clone();
+                    exec.call(exec.fn_resolve, (result.promise_id, data.len() as i32))?;
+                    Ok(())
+                })
             }
-            Err(e) => {
-                // TODO: Handle properly
-                ic_cdk::println!("Async task #{} failed.", task_id);
-                return Err(format!("Async task #{} failed: {}", task_id, e));
+            Err(err) => {
+                let title = format!("Rejecting Promise #{}: {}", result.promise_id, result.description);
+                self.with_commit(title, |exec| {
+                    exec.ctx().log(format!("Promise rejected with error: {}", err));
+                    let err_bytes = err.as_bytes().to_vec();  // TODO: Convert to UTF-16?
+                    let err_len = err_bytes.len() as i32;
+                    exec.ctx().commit_context().shared_buffer = err_bytes;
+                    exec.call(exec.fn_reject, (result.promise_id, err_len))?;
+                    Ok(())
+                })
             }
         }
     }
 
-    // TODO: Make private
-    pub fn ctx(&mut self) -> &mut ExecutionContext {
+    /// Returns a Future that resolves to an AsyncResult when awaited.
+    /// Note that FuturesUnordered is used internally, so that all pending futures
+    /// are polled fairly.
+    pub fn next_future(&mut self) -> Next<'_, FuturesUnordered<AsyncFuture>> {
+        self.ctx().pending_futures.next()
+    }
+
+    fn ctx(&mut self) -> &mut ExecutionContext {
         self.store.data_mut()
     }
+
+    /// Executes the given function within a CommitContext. Many operations such as logging
+    /// or scheduling async tasks require a CommitContext to be present. After execution,
+    /// `commit()` is called on the RuntimeEnvionment to persist the commit.
+    fn with_commit<R>(&mut self, title: String, f: impl FnOnce(&mut Self) -> R) -> R {
+        self.ctx().commit_begin();
+        let result = f(self);
+        self.ctx().commit_end(title);
+        result
+    }    
 }
 
 // TODO: This might become a SimulationResult?
@@ -146,14 +155,19 @@ pub struct ExecutionResult {
 /// Runtime context available to host functions during execution.
 pub struct ExecutionContext {
     env: Box<dyn RuntimeEnvironment>,
+    // Only set in the context of a commit.
     commit_context: Option<CommitContext>,
-    // Async tasks that are pending.
-    pub async_tasks: Vec<AsyncTask>,
+    // Futures that are currently pending.
+    pending_futures: FuturesUnordered<AsyncFuture>,
 }
 
 impl ExecutionContext {
     pub fn env(&self) -> &dyn RuntimeEnvironment {
         &*self.env
+    }
+
+    pub fn commit_context(&mut self) -> &mut CommitContext {
+        self.commit_context.as_mut().expect("CommitContext missing")
     }
 
     pub fn log(&mut self, message: String) {
@@ -162,26 +176,23 @@ impl ExecutionContext {
 
     pub fn queue_task(
         &mut self,
+        // TODO: Generate ID instead.
         id: i32,
         description: String,
-        future: Pin<Box<dyn Future<Output = AsyncResult>>>,
+        future: Pin<Box<dyn Future<Output = Result<Vec<u8>, String>>>>,
     ) {
-        self.log(format!("Queued AsyncTask #{}: {}", id, description));
-        self.async_tasks.push(AsyncTask {
-            id,
-            description,
-            future,
-        });
-    }
-
-    /// Executes the given function within a CommitContext. Many operations such as logging
-    /// or scheduling async tasks require a CommitContext to be present. After execution,
-    /// `commit()` is called on the RuntimeEnvionment to persist the commit.
-    fn with_commit<R>(&mut self, title: String, f: impl FnOnce(&mut Self) -> R) -> R {
-        self.commit_begin();
-        let result = f(self);
-        self.commit_end(title);
-        result
+        self.log(format!("Spawned Promise #{}: {}", id, description));
+        self.pending_futures.push(Box::pin(async move {
+            let result = AsyncResult {
+                promise_id: id,
+                description,
+                result: future.await,
+            };
+            // Note we are not in a commit context here.
+            // TODO: Remove this or turn it into an optional debug log.
+            ic_cdk::println!("Promise #{} completed.", id);
+            result
+        }));
     }
 
     fn commit_begin(&mut self) {
@@ -200,10 +211,6 @@ impl ExecutionContext {
         self.env.commit(commit);
         self.commit_context = None;
     }
-
-    pub fn commit_context(&mut self) -> &mut CommitContext {
-        self.commit_context.as_mut().expect("CommitContext missing")
-    }
 }
 
 /// Context valid for a single commit of the exeuction.
@@ -214,3 +221,12 @@ pub struct CommitContext {
     // Shared buffer that the guest can read using copy_shared_buffer.
     pub shared_buffer: Vec<u8>,
 }
+
+pub struct AsyncResult {
+    promise_id: i32,
+    description: String,
+    // TODO: Consider replacing String with (ErrorCode, String)?
+    result: Result<Vec<u8>, String>
+}
+
+pub type AsyncFuture = Pin<Box<dyn Future<Output = AsyncResult> + 'static>>;
