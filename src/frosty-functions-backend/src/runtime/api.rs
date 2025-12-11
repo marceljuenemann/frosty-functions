@@ -123,7 +123,7 @@ fn evm_caller_wallet_address(mut caller: Caller<Ctx>, buffer_ptr: i32) -> Result
     let address: Address = if env!(caller).is_simulation() {
         SIMULATION_ADDRESS.parse().unwrap()
     } else {
-        env!(caller).caller_wallet().address()
+        env!(caller).caller_wallet().unwrap().address()
     };
     write_utf16_string(caller, &address.to_string(), buffer_ptr)
 }
@@ -139,22 +139,26 @@ fn evm_caller_wallet_deposit(mut caller: Caller<Ctx>, amount: u64, promise_id: i
         Chain::Evm(id) => id,
         _ => return Err(Error::new("CallerWallet.deposit can only be used on EVM chains".to_string())),
     };
+    // TODO: Refactor all this ugly code.
     let wallet = ctx.env().caller_wallet();
+    let is_simulation = ctx.env().is_simulation();
     ctx.queue_task(
         promise_id,
         format!("CallerWallet.deposit({})", amount),
         // TODO: Move the messy parts into a spawn function.
         Box::pin(async move {
-            // TODO: Check gas balance first.
-            let tx = transfer_funds(evm_chain, wallet.address(), amount).await?;
-            // TODO: In order to add to the execution logs, we'll need to store the execution object
-            // and context on the heap and manually delete it after execution. We'll need some
-            // cleanup mechanism for executions that are stale / paniced.
-            // Alternatively, maybe just have a synchronous callback that's called after
-            // the future completed already, so that we can do some logging etc.
-            ic_cdk::println!("[#{}] Sent transaction with hash: 0x{}", promise_id, tx);
-            // TODO: Do add the transaction to the execution logs.
-            Ok(tx.as_slice().into())
+            if is_simulation {
+                let dummy_tx = [1u8; 32];
+                Ok(dummy_tx.to_vec())
+            } else {
+                // TODO: Check gas balance first.
+                let tx = transfer_funds(evm_chain, wallet.unwrap().address(), amount).await?;
+                ic_cdk::println!("[#{}] Sent transaction with hash: 0x{}", promise_id, tx);
+                // TODO: Do add the transaction to the execution logs. We aren't even in a commit
+                // context at this point though. Maybe add a synchronous callback that is invoked
+                // after the async future is completed, but before the callback is invoked?
+                Ok(tx.as_slice().into())
+            }
         })
     );
     Ok(())
@@ -166,15 +170,20 @@ fn evm_caller_wallet_sign_message(mut caller: Caller<Ctx>, message_ptr: i32, pro
     let message = read_buffer(&caller, message_ptr, BUFFER_MAX_LEN)?;
     let mut ctx = ctx!(caller);
     let wallet = ctx.env().caller_wallet();
-    // TODO: Spawn rather than queue task
+    // TODO: Refactor this. Probably create an AsyncContext that is passed to the closure.
+    let is_simulation = ctx.env().is_simulation();
     ctx.queue_task(
         promise_id,
         format!("CallerWallet.signMessage(0x{})", clip_string(&hex::encode(&message), 100)),
         Box::pin(async move {
-            let sig = wallet.sign_message(message.as_ref()).await
-                .map_err(|e| format!("Failed to sign message: {}", e))?;
-            ic_cdk::println!("Signed message length in bytes: {}", sig.as_bytes().len());
-            Ok(sig.as_bytes().into())
+            if is_simulation {
+                let dummy_signature = [42u8; 65];
+                return Ok(dummy_signature.into());
+            } else {
+                let sig = wallet.unwrap().sign_message(message.as_ref()).await
+                    .map_err(|e| format!("Failed to sign message: {}", e))?;
+                Ok(sig.as_bytes().into())
+            }
         }) 
     );
     Ok(())

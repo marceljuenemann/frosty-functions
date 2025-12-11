@@ -14,5 +14,7 @@ pub trait RuntimeEnvironment {
     fn commit(&self, commit: Commit);
 
     /// Returns the shared wallet for the caller of the execution.
-    fn caller_wallet(&self) -> IcpSigner;
+    // TODO: Refactor this to make more sense in simulations. Maybe just split into
+    // separate calls. Should be possible to borrow execution context from async context
+    fn caller_wallet(&self) -> Option<IcpSigner>;
 }

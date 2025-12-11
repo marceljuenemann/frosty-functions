@@ -86,7 +86,7 @@ impl RuntimeEnvironment for ExecutionEnvironment {
             .expect("Failed to store commit");
     }
 
-    fn caller_wallet(&self) -> IcpSigner { 
-        self.caller_wallet.clone()
+    fn caller_wallet(&self) -> Option<IcpSigner> { 
+        Some(self.caller_wallet.clone())
     }
 }

@@ -81,7 +81,8 @@ impl RuntimeEnvironment for SimulationEnv {
         self.commits.borrow_mut().push(commit);
     }
 
-    fn caller_wallet(&self) -> IcpSigner { 
-        todo!("[SIMULATION] caller_wallet")
+    fn caller_wallet(&self) -> Option<IcpSigner> { 
+        // TODO: This is very ugly, refactor
+        None
     }
 }
