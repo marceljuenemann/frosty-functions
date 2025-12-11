@@ -37,6 +37,48 @@ Life of a Frosty Function:
 
 ## Features
 
+- [x] Invoke from EVM
+  - [x] Local EVM
+  - [x] Arbitrum Sepolia
+  - [ ] Arbitrum One
+  - [ ] ETH Sepolia
+  - [ ] ETH mainnet
+- [x] AssemblyScript support
+- [x] Frontend (written in Angular)
+  - [x] Simulate functions
+  - [x] Deployment
+  - [x] Invoke functions
+  - [x] View logs
+- [x] Async functions with Promises
+- [x] console.log support
+- [x] Verifiable Random Function (VRF)
+- [ ] Wallet.forCaller
+  - [x] address()
+  - [x] signMessage()
+  - [ ] eth_sendTransaction
+  - [ ] eth_call
+  - [ ] eth_getLogs
+- [ ] Gas payments
+  - [x] Deposit gas into wallet
+  - [ ] Charge for instructions
+  - [ ] Charge for time
+  - [ ] Charge for outcalls
+ - [ ] Memory limit
+ - [ ] Server-side builds (canister?)
+ - [ ] Automated indexing
+
+ - [ ] fetch (HTTP Outcalls)
+ - [ ] Timers (delay() Promise)
+ - [ ] Long-running calls (setTimer(0) when reaching ICP's 40B instruction limit)
+ - [ ] Canister calls
+ - [ ] Invoke other Frosty Functions (including recursively) 
+ - [ ] ABI & Solidity support (compile-time imports & transformations)
+ - [ ] x402 support (invoke via REST)
+ - [ ] Cross-chain support
+   - [ ] Bitcoin
+   - [ ] Solana
+   - [ ] Helpers for token swaps
+  
 
 ## Contract deployments
 
