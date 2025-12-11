@@ -1,14 +1,25 @@
-# ❄️ Frosty Functions ⚡
+# ❄️ Frosty Functions
 
-Run your off-chain workloads on-chain
-- Decentralized
-- Flexible & Fast (WASM)
-- Super Powers (HTTP calls, EVM interaction, ...)
+> [!NOTE]
+> This is very much a work-in-progress project. The main technical challenges are solved though, so getting close to an MVP!
 
-## Goal
+## Overview
 
-The goal of this project is to make it trivial for any developer to run arbitrary
-code on the Internet Computer without any learning curve. Furthermore, it should be trivial to call that code from any EVM smart contract and to receive callbacks.
+Frosty Functions allow you to execute TypeScript¹ on the [Internet Computer](https://internetcomputer.org/what-is-the-ic) blockchain without having to deploy your own canister. They can be invoked from EVM smart contracts and control assets programmatically across multiple chains using [Threshold signatures](https://internetcomputer.org/docs/references/t-sigs-how-it-works).
+
+- **TypeScript-like:** Frosty Functions are written in [AssemblyScript](https://www.assemblyscript.org/), a variant of TypeScript that compiles into WASM. Developers can write code in a familiar language directly in the Frosty web app without having to learn Rust or Motoko or install anything on their machine. The WASM binary is interpreted by the canister using [wasmi](https://github.com/wasmi-labs/wasmi). 
+- **Serverless and canister-less:** Developers should be able to just focus on their code, rather than having to manage cansiters and cycles. In the future, Frosty will use verifiable builds and non-upgradeable cansiters in order to still provide the same security and decentralization guarantees that you get from a native cansiter. You will also be able to self host  your own "Frosty cloud” easily.
+- **EVM-interop:** Frosty Functions can be invoked from any smart contract or EOA via a Bridge contract. Currently this is deployed on Arbitrum One and Arbitrum Sepolia (testnet), but more EVM chains as well as Bitcoin and Solana will be supported in the future. Functions have full control over a wallet held by distributed private keys using the Internet Computer’s Chain Fusion technology, so that they can invoke arbitrary smart contracts on other chains.
+
+## Vision
+
+The larger vision for **❄️ Frosty** is to become the developer platform that makes building decentralized web3 apps as easy as building web2 apps with Firebase.
+
+Primary design goals:
+1. **Seamless developer experience:** Frosty does not invent any new cryptography, but aims to make it accessible to a much larger developer base. For example, Frosty Functions doesn't require any installation or new tokens, it works out of the box with a simple MetaMask wallet.
+1. **Scalable:** The architecture is designed to be able to scale horizontally in the future. See [building planet-scale apps on ICP](https://forum.dfinity.org/t/building-planet-scale-apps-on-icp/59346). This is why Frosty Functions are intentionally stateless (Wallets do hold state, but my plan is to split wallet and executor cansiters in the future).
+1. **Cross-chain:** While the Internet Computer makes for a great execution layer due to its horizontally scalable architecture, the future will probably be cross-chain in some way. Frosty aims to hide that complexity though from developers, e.g. making it easy to handle micropayments on various chains.
+1. **Decentralized & Secure:** Many "web3" apps rely heavily on centralized off-chain actors. Frosty aim to find secure and decentralized solutions for all components.
 
 ## Proof of concept
 
