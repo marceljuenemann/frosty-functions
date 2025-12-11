@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use alloy::primitives::keccak256;
+use alloy::primitives::{Address, keccak256};
 use alloy::signers::Signer;
 use wasmi::{Caller, Error, Func, Global, Linker, Memory, Mutability, Store, Val, errors::LinkerError};
 use crate::runtime::{LogEntry, LogType, RuntimeEnvironment};
@@ -14,6 +14,10 @@ const BUFFER_MAX_LEN: usize = 10_000_000;
 
 /// The maximum length of console log messages.
 const CONSOLE_LOG_MAX_LEN: usize = 10_000;
+
+// Constants used in simulations.
+const SIMULATION_ADDRESS: &str = "0x1234567890abcdef1234567890abcdef12345678";
+
 
 type Ctx = Rc<RefCell<ExecutionContext>>;
 
@@ -116,9 +120,12 @@ fn on_chain_id(mut caller: Caller<Ctx>) -> i64 {
 /// Writes the caller's wallet address as a UTF-16LE string into the provided buffer.
 /// The buffer is expected to be large enough to hold the address string.
 fn evm_caller_wallet_address(mut caller: Caller<Ctx>, buffer_ptr: i32) -> Result<(), Error> {
-    let address = env!(caller).caller_wallet().address().to_string();
-    ic_cdk::println!("EVM caller wallet address: {}", address);
-    write_utf16_string(caller, &address, buffer_ptr)
+    let address: Address = if env!(caller).is_simulation() {
+        SIMULATION_ADDRESS.parse().unwrap()
+    } else {
+        env!(caller).caller_wallet().address()
+    };
+    write_utf16_string(caller, &address.to_string(), buffer_ptr)
 }
 
 /// Transfers the specified amount of gas tokens to the caller wallet.

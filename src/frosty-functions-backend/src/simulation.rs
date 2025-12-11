@@ -3,6 +3,8 @@ use std::rc::Rc;
 
 use alloy::signers::icp::IcpSigner;
 use candid::CandidType;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 
 use crate::runtime::{Commit, JobRequest, RuntimeEnvironment};
 use crate::runtime::{Execution};
@@ -40,8 +42,13 @@ pub fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<SimulationResult
 }
 
 async fn event_loop(execution: &mut Execution) -> Result<(), String> {
+    let mut futures = FuturesUnordered::new();
     loop {
-        let async_result = execution.next_async_result().await;
+        while let Some(async_future) = execution.next_queued_future() {
+            futures.push(async_future);
+        }
+
+        let async_result = futures.next().await;
         match async_result {
             Some(result) => {
                 let callback_result = execution.callback(result);

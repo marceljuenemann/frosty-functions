@@ -1,6 +1,8 @@
 use std::time::Duration;
 
 use alloy::signers::icp::IcpSigner;
+use futures::StreamExt;
+use futures::stream::FuturesUnordered;
 use ic_cdk_timers::set_timer;
 
 use crate::runtime::{Commit, JobRequest, JobStatus, RuntimeEnvironment};
@@ -40,9 +42,16 @@ pub async fn execute_job(request: JobRequest, wasm: &[u8]) -> Result<(), String>
     let mut execution = Execution::run_main(wasm, env)?;
     ic_cdk::println!("run_main returned");  // TODO: remove
 
+    let mut futures = FuturesUnordered::new();
     loop {
+        // Move Futures from queue to FuturesUnordered
+        // TODO: Turn this into a one-liner
+        while let Some(async_future) = execution.next_queued_future() {
+            futures.push(async_future);
+        }
+
         ic_cdk::println!("Awaiting next future");  // TODO: remove
-        match execution.next_async_result().await {
+        match futures.next().await {
             Some(result) => {
                 execution.callback(result)?;
             },

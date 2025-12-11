@@ -1,10 +1,9 @@
 use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
 
-use futures::stream::{FuturesUnordered};
-use futures::StreamExt;
 use wasmi::{Linker, WasmParams};
 use wasmi::{Engine, Module, TypedFunc, core::TrapCode};
 
@@ -29,7 +28,7 @@ impl Execution {
         let mut context = ExecutionContext {
             env: Box::new(env),
             commit_context: None,
-            pending_futures: FuturesUnordered::new(),
+            queued_futures: VecDeque::new(),
         };
         context.commit_begin();  // Can't use with_commit here because ownership will move.
 
@@ -124,10 +123,9 @@ impl Execution {
         }
     }
 
-    /// Awaits the pending async tasks using FuturesUnordered, so that all pending futures
-    /// are polled fairly.
-    pub async fn next_async_result(&mut self) -> Option<AsyncResult> {
-        self.ctx().borrow_mut().pending_futures.next().await
+    // TODO: Return all at once
+    pub fn next_queued_future(&mut self) -> Option<AsyncFuture> {
+        self.ctx().borrow_mut().queued_futures.pop_front()
     }
 
     // TODO: Return reference instead. Also have ctx_mut() for mutable access.
@@ -151,8 +149,8 @@ pub struct ExecutionContext {
     env: Box<dyn RuntimeEnvironment>,
     // Only set in the context of a commit.
     commit_context: Option<CommitContext>,
-    // Futures that are currently pending.
-    pending_futures: FuturesUnordered<AsyncFuture>,
+    // Queue for Futures that should be spawned.
+    queued_futures: VecDeque<AsyncFuture>,
 }
 
 impl ExecutionContext {
@@ -176,7 +174,7 @@ impl ExecutionContext {
         future: AsyncFutureInner,
     ) {
         self.log(format!("Spawned Promise #{}: {}", id, description));
-        self.pending_futures.push(Box::pin(async move {
+        self.queued_futures.push_back(Box::pin(async move {
             let result = AsyncResult {
                 promise_id: id,
                 description,
