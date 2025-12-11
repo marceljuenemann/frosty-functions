@@ -1,22 +1,24 @@
 
 <form class="mb-3" [formGroup]="form">
   <div class="form-floating mb-3">
-      <input type="text" class="form-control"
-        [class.is-invalid]="form.get('calldata')?.invalid"
-        id="calldata" formControlName="calldata" placeholder="0x...">
-    <label for="calldata">Calldata (hex)</label>
-    <div *ngIf="form.get('calldata')?.invalid" class="text-danger">
-      Invalid hex format.
-    </div>
+    <select class="form-select" id="chain" formControlName="chain">
+      @for (opt of chainOptions; track opt.value) {
+        <option [value]="opt.value">{{ opt.label }}</option>
+      }
+    </select>
+    <label for="chain">Chain</label>
   </div>
   <div class="form-floating mb-3">
-      <input type="number" class="form-control"
-        [class.is-invalid]="form.get('amount')?.invalid"
-        id="amount" formControlName="amount" placeholder="Amount in gwei">
+    <input type="text" class="form-control"
+      [class.is-invalid]="form.get('calldata')?.invalid"
+      id="calldata" formControlName="calldata" placeholder="0x...">
+    <label for="calldata">Calldata (hex)</label>
+  </div>
+  <div class="form-floating mb-3">
+    <input type="number" class="form-control"
+      [class.is-invalid]="form.get('amount')?.invalid"
+      id="amount" formControlName="amount" placeholder="Amount in gwei">
     <label for="amount">Amount (gwei)</label>
-    <div *ngIf="form.get('amount')?.invalid" class="text-danger">
-      Amount must be a positive number.
-    </div>
   </div>
   <div>
     <button class="btn btn-primary" (click)="runFunction()" [disabled]="form.invalid">

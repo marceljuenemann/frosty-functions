@@ -24,8 +24,15 @@ export const SCANNER_URL = 'https://sepolia.arbiscan.io';
   styleUrl: './invoke-function.scss',
 })
 export class InvokeFunctionComponent {
+  readonly chainOptions = [
+    { value: 'localhost', label: 'Localhost' },
+    { value: 'arbitrum-sepolia', label: 'Arbitrum Sepolia' },
+    { value: 'arbitrum-one', label: 'Arbitrum One' },
+  ];
+
   function = input.required<FunctionState>();
   form = new FormGroup({
+    chain: new FormControl('localhost', [Validators.required]),
     calldata: new FormControl('0xdeadbeef', [Validators.pattern(/^0x([a-fA-F0-9][a-fA-F0-9])*$/)]),
     amount: new FormControl(1, [Validators.required, Validators.min(1)])
   });
@@ -63,7 +70,8 @@ export class InvokeFunctionComponent {
     try {
       const calldata = decodeHex(this.form.get('calldata')?.value ?? '');
       const amount = BigInt(this.form.get('amount')?.value ?? 0) * GWEI;
-      const chainId = this.frostyFunctionService.chainId(CHAIN);
+      const chain = this.getSelectedChain();
+      const chainId = this.frostyFunctionService.chainId(chain);
       const tx = await this.signerService.invokeFrostyFunction(chainId, this.function(), calldata, amount);
       this.transactionId.set(tx.hash);
       return tx;
@@ -95,8 +103,9 @@ export class InvokeFunctionComponent {
   private async indexTransaction(receipt: TransactionReceipt): Promise<void> {
     this.job.set('pending');
     try {
-      const jobRequest = await this.frostyFunctionService.indexTransaction(CHAIN, receipt);
-      this.job.set(this.frostyFunctionService.watchJob(CHAIN, Number(jobRequest.on_chain_id[0])));
+      const chain = this.getSelectedChain();
+      const jobRequest = await this.frostyFunctionService.indexTransaction(chain, receipt);
+      this.job.set(this.frostyFunctionService.watchJob(chain, Number(jobRequest.on_chain_id[0])));
     } catch (e) {
       this.error.set(`Indexing transaction failed: ${e}`);
       this.job.set(null);
@@ -111,5 +120,13 @@ export class InvokeFunctionComponent {
   // TODO: Move somewhere shared.
   jobStatus(job: Job): string {
     return Object.keys(job.status)[0].toLowerCase();
+  }
+
+  private getSelectedChain(): Chain {
+    const val = this.form.get('chain')?.value;
+    if (val === 'localhost') return { Evm: { Localhost: null } };
+    if (val === 'arbitrum-sepolia') return { Evm: { ArbitrumSepolia: null } };
+    if (val === 'arbitrum-one') return { Evm: { ArbitrumOne: null } };
+    return { Evm: { Localhost: null } };
   }
 }
