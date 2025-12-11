@@ -5,21 +5,30 @@ import { TransactionReceipt, TransactionResponse } from 'ethers';
 import { FrostyFunctionService } from '../frosty-function-service';
 import { AsyncPipe } from '@angular/common';
 import { Observable } from 'rxjs';
+import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { decodeHex } from '../util';
+
+const GWEI = BigInt(1_000_000_000);
 
 // TODO: Configurable
 const CHAIN: Chain = { Evm: { Localhost: null } };
+//  const CHAIN: Chain = { Evm: { ArbitrumSepolia: null } };
 
 // TODO: Move to a config object
 export const SCANNER_URL = 'https://sepolia.arbiscan.io';
 
 @Component({
   selector: 'app-invoke-function',
-  imports: [AsyncPipe],
+  imports: [ReactiveFormsModule, AsyncPipe],
   templateUrl: './invoke-function.html',
   styleUrl: './invoke-function.scss',
 })
 export class InvokeFunctionComponent {
   function = input.required<FunctionState>();
+  form = new FormGroup({
+    calldata: new FormControl('0xdeadbeef', [Validators.pattern(/^0x([a-fA-F0-9][a-fA-F0-9])*$/)]),
+    amount: new FormControl(1, [Validators.required, Validators.min(1)])
+  });
 
   // There's three UI states for each step: null (not started), 'pending', and a value (completed).
   transactionId = signal<'pending' | string | null>(null);
@@ -36,6 +45,8 @@ export class InvokeFunctionComponent {
   ) {}
 
   async runFunction() {
+    if (this.form.invalid) return;
+
     this.transactionId.set(null);
     this.blockNumber.set(null);
     this.job.set(null);
@@ -50,8 +61,8 @@ export class InvokeFunctionComponent {
   private async submitTransaction(): Promise<TransactionResponse> {
     this.transactionId.set('pending');
     try {
-      const calldata = new Uint8Array([]);  // TODO: configure
-      const amount = BigInt(1234567890012345678);
+      const calldata = decodeHex(this.form.get('calldata')?.value ?? '');
+      const amount = BigInt(this.form.get('amount')?.value ?? 0) * GWEI;
       const chainId = this.frostyFunctionService.chainId(CHAIN);
       const tx = await this.signerService.invokeFrostyFunction(chainId, this.function(), calldata, amount);
       this.transactionId.set(tx.hash);

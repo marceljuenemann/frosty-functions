@@ -1,11 +1,29 @@
-<div class="mb-3">
-</div>
 
-<div class="mb-3">
-  <button class="btn btn-primary" (click)="runFunction()">
-    💸 Run
-  </button>
-</div>
+<form class="mb-3" [formGroup]="form">
+  <div class="form-floating mb-3">
+      <input type="text" class="form-control"
+        [class.is-invalid]="form.get('calldata')?.invalid"
+        id="calldata" formControlName="calldata" placeholder="0x...">
+    <label for="calldata">Calldata (hex)</label>
+    <div *ngIf="form.get('calldata')?.invalid" class="text-danger">
+      Invalid hex format.
+    </div>
+  </div>
+  <div class="form-floating mb-3">
+      <input type="number" class="form-control"
+        [class.is-invalid]="form.get('amount')?.invalid"
+        id="amount" formControlName="amount" placeholder="Amount in gwei">
+    <label for="amount">Amount (gwei)</label>
+    <div *ngIf="form.get('amount')?.invalid" class="text-danger">
+      Amount must be a positive number.
+    </div>
+  </div>
+  <div>
+    <button class="btn btn-primary" (click)="runFunction()" [disabled]="form.invalid">
+      💸 Run
+    </button>
+  </div>
+</form>
 
 @if (this.transactionId() === 'pending') {
   <div class="mb-3">
