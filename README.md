@@ -21,18 +21,34 @@ Primary design goals:
 1. **Cross-chain:** While the Internet Computer makes for a great execution layer due to its horizontally scalable architecture, the future will probably be cross-chain in some way. Frosty aims to hide that complexity though from developers, e.g. making it easy to handle micropayments on various chains.
 1. **Decentralized & Secure:** Many "web3" apps rely heavily on centralized off-chain actors. Frosty aim to find secure and decentralized solutions for all components.
 
-## Proof of concept
-
-This proof of concept demonstrates:
-
-- Running wasmi inside an ICP canister
-- Setting instruction limits and resuming execution if desired (can be used for charging gas)
-- Compiling Assembly Script into wasm
-- Host functions to extend functionality
-
 ## Technical Architecture
 
-Inspired by [icp-evm-coprocessor-starter](https://github.com/letmejustputthishere/icp-evm-coprocessor-starter)
+The underlying technology is very similiar to [icp-evm-coprocessor-starter](https://github.com/letmejustputthishere/icp-evm-coprocessor-starter). Frosty Functions just takes this one step further by building a Coprocessor-as-a-Service.
+
+Life of a Frosty Function:
+1. Developers can write the code directly in the web app without the need for any installation or accounts or tokens. The code is compiled client-side using AssemblyScript and the Frosty standard library, which provides a high-level interface to host functions.
+1. Developers can "simulate" a function execution through the web app right away. This is executed on the canister as a _query_ call without any side effects
+1. Developers can then deploy their function into the Frosty canister. The hash of the uploaded WASM binary is used to identify the function going forward
+1. Anybody can now invoke the function through the [Bridge contract](contracts/Bridge.sol) deployed on a supported chain
+1. Currently, the `index_block` cansiter method needs to be invoked manually to index the event (the Frontend takes care of this, but for smart contract invocations this needs to be done off-chain). This step will be fully automated in the future.
+1. The cansiter verifies the event through a [HTTP Outcall](https://internetcomputer.org/https-outcalls/) to an RPC service. Currently, only Alchemy is used, but in the future the plan is to query multiple providers to reduce centralization risks.
+1. The function invocation is now added to a job queue. In the future, the actual execution will be delegated to an available execution canister (or a new one will be spawned if needed).
+1. The function may request control of a wallet for the caller using `Wallet.forCaller()`. This wallet is shared between all Frosty Functions, but unique depending on the caller that invoked the function. That allows a smart contract or user to use different functions to manage the same assets, but also means they need to trust the function they are invoking. In the future, different wallets will be available by specifying a derivation path (also wallets shared between all callers of the same function).
+
+## Features
+
+
+## Contract deployments
+
+Latest version of the contract
+
+* Arbitrum Sepolia (testnet):
+  * 0xcAcbb4E46F2a68e3d178Fb98dCaCe59d12d54CBc for owner 0xda824f554c42ecd28a74a037c70fa0b5bf447bb0 (localhost)
+* Arbitrum One: https://arbiscan.io/address/0xe712a7e50aba019a6d225584583b09c4265b037b
+
+## Canister deployments
+
+* Backend: https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=n6va3-cyaaa-aaaao-qk6pq-cai
 
 ## Local development
 
@@ -66,20 +82,3 @@ tp://localhost:8545 --ether`
 ### Regenerate candid interface
 
 See instructions [here](https://internetcomputer.org/docs/building-apps/developer-tools/cdks/rust/generating-candid#option-1-automatic-generation-using-generate-did-crate). There seems to be some issue with finding the right WASM file though, so I currently use `generate-candid.sh` as a workaround.
-
-### Assembly Script Playground
-
-Until the Frontend is up and running, the WASM needs to be compiled directly with the Assembly
-Script compiler. Run `npm run asbuild` in `src/assembly-playground`.
-
-## Contract deployments
-
-Latest version of the contract
-
-* Arbitrum Sepolia (testnet):
-  * 0xcAcbb4E46F2a68e3d178Fb98dCaCe59d12d54CBc for owner 0xda824f554c42ecd28a74a037c70fa0b5bf447bb0 (localhost)
-* Arbitrum One: https://arbiscan.io/address/0xe712a7e50aba019a6d225584583b09c4265b037b
-
-## Canister deployments
-
-* Backend: https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=n6va3-cyaaa-aaaao-qk6pq-cai
