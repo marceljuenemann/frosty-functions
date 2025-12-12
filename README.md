@@ -124,3 +124,13 @@ tp://localhost:8545 --ether`
 ### Regenerate candid interface
 
 See instructions [here](https://internetcomputer.org/docs/building-apps/developer-tools/cdks/rust/generating-candid#option-1-automatic-generation-using-generate-did-crate). There seems to be some issue with finding the right WASM file though, so I currently use `generate-candid.sh` as a workaround.
+
+
+## License
+
+Licensed under the Apache License, Version 2.0.
+See the [LICENSE](./LICENSE) file for the full text.
+
+Copyright ©2025 Marcel Juenemann
+
+Copyright ©2025 HTTP 403 Limited
