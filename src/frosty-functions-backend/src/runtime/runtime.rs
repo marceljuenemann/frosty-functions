@@ -10,7 +10,21 @@ use wasmi::{Engine, Module, TypedFunc, core::TrapCode};
 use crate::runtime::api::{register_constants, register_host_functions};
 use crate::runtime::{Commit, LogEntry, LogType, RuntimeEnvironment};
 
-const FUEL_PER_BATCH: u64 = 1_000_000;
+// Maximum number of host (IC) instructions per job.
+// TODO: Increase this except for simulations.
+// TODO: Remove the limit altogether by yielding control back to IC.
+const HOST_INSTRUCTION_LIMIT: u64 = 1_000_000_000;
+
+// Number of (guest) WASM instructions before we check gas/fuel again.
+// TODO: Calling back into a host function can be very expensive, so we
+// may still hit the host limit before checking. Ideally we would check within
+// each host function call as well. Possibly we can set the remaining fuel to
+// zero from there.
+const FUEL_PER_BATCH: u64 = 10_000_000;
+
+// Fee per host instruction in wei.
+// TODO: Calcuate this dynamically based on XDR:ETH price.
+const FEE_PER_INSTRUCTION: u64 = 4000;
 
 /// Runtime state for a job execution. All methods are synchronous and the caller is expected
 /// to handle scheudling of async operations.
@@ -34,9 +48,8 @@ impl Execution {
 
         let context = Rc::new(RefCell::new(context));
         let mut execution = Self::init(wasm, context)?;
-        execution.ctx().borrow_mut().log(format!("Instantiated WASM module"));
+        execution.ctx().borrow_mut().log(format!("WASM module instantiated"));
         execution.call(execution.fn_main, ())?;
-
         execution.ctx().borrow_mut().commit_end("main()".to_string());
         // TODO: Return ExecutionResult of main as well.
         Ok(execution)
@@ -89,7 +102,7 @@ impl Execution {
                     if let Some(TrapCode::OutOfFuel) = e.as_trap_code() {
                         // TODO: Deduct cycles from gas, then resume execution if more gas is available.
                         // self.store.set_fuel(FUEL_PER_BATCH).map_err(|e| format!("Failed to refuel: {}", e))?;
-                        return Err("WASM execution ran out of fuel".to_string());
+                        return Err(format!("Instruction limit reached: The number of instructions is currently limited to {}", FUEL_PER_BATCH));
                     }
                     // Other execution error (trap, validation, etc.)
                     return Err(format!("WASM execution failed: {}", e));
@@ -112,6 +125,7 @@ impl Execution {
             Err(err) => {
                 let title = format!("Rejecting Promise #{}: {}", result.promise_id, result.description);
                 self.with_commit(title, |exec| {
+                    // TODO: Proper error serialization with an error code.
                     exec.ctx().borrow_mut().log(format!("Promise rejected with error: {}", err));
                     let err_bytes = err.as_bytes().to_vec();  // TODO: Convert to UTF-16?
                     let err_len = err_bytes.len() as i32;
@@ -191,14 +205,21 @@ impl ExecutionContext {
         if self.commit_context.is_some() {
             panic!("CommitContext already present");
         }
-        self.commit_context = Some(CommitContext::default());
+        self.commit_context = Some(CommitContext {
+            initial_instruction_counter: ic_cdk::api::instruction_counter(),
+            logs: Vec::new(),
+            shared_buffer: Vec::new(),
+        });
     }
 
     fn commit_end(&mut self, title: String) {
+        let instructions = ic_cdk::api::instruction_counter() - self.commit_context().initial_instruction_counter;
         let commit = Commit {
             timestamp: ic_cdk::api::time(),
             title: title,
             logs: self.commit_context().logs.clone(),
+            instructions,
+            fees: instructions * FEE_PER_INSTRUCTION,
         };
         self.env.commit(commit);
         self.commit_context = None;
@@ -206,8 +227,9 @@ impl ExecutionContext {
 }
 
 /// Context valid for a single commit of the exeuction.
-#[derive(Default)]
 pub struct CommitContext {
+    // Instruction counter at the beginning of the commit.
+    pub initial_instruction_counter: u64,
     // Logs written during the current commit.
     pub logs: Vec<LogEntry>,
     // Shared buffer that the guest can read using copy_shared_buffer.

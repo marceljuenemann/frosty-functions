@@ -4,10 +4,27 @@ import { verifiableRandomness } from "frosty/random";
 import { Promise } from "frosty/promise";
 import { hex } from "frosty/util";
 
+function fib(n: u32): u32 {
+  let a: u32 = 1;
+  let b: u32 = 1;
+  for (let i: u32 = 3; i <= n; i++) {
+    const c: u32 = a + b;
+    a = b;
+    b = c;
+  }
+  return b;
+}
+
 export function main(): void {
   console.log(`Invoked from ${CALLING_CHAIN_NAME} (Chain ID: ${CALLING_CHAIN_ID})`);
   console.log(`Calldata is: ${hex.encode(CALLDATA)}`);
   console.log(`Job ID is: ${JOB_ID}`);
+
+
+  for (let i: u32 = 1; i < 10; i++) {
+    console.log(`fib(${i}) = ${fib(i)}`);
+  }
+
 
   // Frosty automatically creates an Ethereum Wallet for the caller that invoked the
   // function. The private key is split across the nodes of the Internet Computer and

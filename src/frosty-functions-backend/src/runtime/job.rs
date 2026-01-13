@@ -43,8 +43,10 @@ pub struct Job {
     /// Execution is split into a series of commits. This field
     /// contains the IDs of all commits for this job made so far.
     pub commit_ids: Vec<u64>,
-    // TODO: Add gas used etc.
-    // TODO: Info for timers, keep alive to cancel stale jobs etc. (probably in Execution only)
+    // Fees charged for the execution of this job. Excludes gas_used.
+    pub fees: u64,
+    // Gas used for transactions on the calling chain (e.g. depositGas).
+    pub gas_used: u64,
 }
 
 impl Job {
@@ -54,6 +56,8 @@ impl Job {
             status: JobStatus::Pending,
             created_at: ic_cdk::api::time(),
             commit_ids: Vec::new(),
+            fees: 0,
+            gas_used: 0,
         }
     }
 }
@@ -77,6 +81,8 @@ pub struct Commit {
     pub timestamp: u64,
     pub title: String,
     pub logs: Vec<LogEntry>,
+    pub instructions: u64,  // Host instructions used.
+    pub fees: u64,          // Fees charged for this commit.
 }
 
 /**

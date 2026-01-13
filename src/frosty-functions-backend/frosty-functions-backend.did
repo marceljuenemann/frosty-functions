@@ -1,6 +1,12 @@
 type Address = variant { EvmAddress : text };
 type Chain = variant { Evm : EvmChain };
-type Commit = record { title : text; logs : vec LogEntry; timestamp : nat64 };
+type Commit = record {
+  title : text;
+  fees : nat64;
+  logs : vec LogEntry;
+  instructions : nat64;
+  timestamp : nat64;
+};
 type DeployResult = variant { Error : text; Duplicate : blob; Success : blob };
 type EvmChain = variant { ArbitrumSepolia; ArbitrumOne; Localhost };
 type FunctionDefinition = record {
@@ -16,8 +22,10 @@ type FunctionState = record {
 };
 type Job = record {
   status : JobStatus;
+  fees : nat64;
   request : JobRequest;
   created_at : nat64;
+  gas_used : nat64;
   commit_ids : vec nat64;
 };
 type JobRequest = record {
