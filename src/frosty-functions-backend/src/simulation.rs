@@ -12,6 +12,8 @@ use crate::runtime::{Execution};
 #[derive(Clone, Debug, CandidType)]
 pub struct SimulationResult {
     pub commits: Vec<Commit>,
+    pub fees: u64,
+    pub gas: u64,
     pub error: Option<String>,
 }
 
@@ -20,6 +22,8 @@ pub fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<SimulationResult
     let env = SimulationEnv {
         job_request: request.clone(),
         commits: commits.clone(),
+        fees: 0,
+        gas: 0
     };
     let mut execution = Execution::run_main(wasm, env)?;
 
@@ -37,6 +41,8 @@ pub fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<SimulationResult
     let commits = commits.borrow().clone();
     Ok(SimulationResult {
         commits,
+        fees: 0, // TODO: Fix this.
+        gas: 0,
         error: result.err(),
     })
 }
@@ -66,6 +72,8 @@ async fn event_loop(execution: &mut Execution) -> Result<(), String> {
 struct SimulationEnv {
     job_request: JobRequest,
     commits: Rc<RefCell<Vec<Commit>>>,
+    fees: u64,
+    gas: u64
 }
 
 impl RuntimeEnvironment for SimulationEnv {
@@ -76,8 +84,14 @@ impl RuntimeEnvironment for SimulationEnv {
     fn job_request(&self) -> &JobRequest {
         &self.job_request
     }
-    
-    fn commit(&self, commit: Commit) {
+
+    fn charge_fee(&mut self, fee: u64) -> Result<(), String> {
+        // TODO: Make gas balance configurable and check against it.
+        self.fees += fee;
+        Ok(())
+    }
+
+    fn commit(&mut self, commit: Commit) {
         self.commits.borrow_mut().push(commit);
     }
 

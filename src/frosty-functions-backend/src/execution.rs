@@ -80,8 +80,12 @@ impl RuntimeEnvironment for ExecutionEnvironment {
     fn job_request(&self) -> &JobRequest {
         &self.job_request
     }
-    
-    fn commit(&self, commit: Commit) {
+
+    fn charge_fee(&mut self, fee: u64) -> Result<(), String> {
+        todo!()
+    }
+
+    fn commit(&mut self, commit: Commit) {
         crate::storage::store_commit(&self.job_request, &commit)
             .expect("Failed to store commit");
     }

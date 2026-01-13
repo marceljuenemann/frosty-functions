@@ -4,7 +4,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
 
-use wasmi::{Linker, WasmParams};
+use wasmi::{Error, Linker, WasmParams};
 use wasmi::{Engine, Module, TypedFunc, core::TrapCode};
 
 use crate::runtime::api::{register_constants, register_host_functions};
@@ -22,9 +22,11 @@ const HOST_INSTRUCTION_LIMIT: u64 = 1_000_000_000;
 // zero from there.
 const FUEL_PER_BATCH: u64 = 10_000_000;
 
-// Fee per host instruction in wei.
-// TODO: Calcuate this dynamically based on XDR:ETH price.
-const FEE_PER_INSTRUCTION: u64 = 4000;
+// Conversion rate between cycles and native currency (wei).
+// TODO: Calculate dynamically based on XDR:ETH price.
+// Note: Add the time of writing, 1 cycle costs approximatey 430 wei,
+// but we need to leave some margin for price fluctuations.
+const WEI_PER_CYCLE: u64 = 1000;
 
 /// Runtime state for a job execution. All methods are synchronous and the caller is expected
 /// to handle scheudling of async operations.
@@ -179,6 +181,23 @@ impl ExecutionContext {
     pub fn log(&mut self, message: String) {
         self.commit_context().logs.push(LogEntry { level: LogType::System, message });
     }
+
+    /// Charges the given fee in the calling currency. Returns an Error if 
+    /// insufficient funds are available.
+    // TODO: Change Error type to something better.
+    pub fn charge_fee(&mut self, fee: u64) -> Result<(), Error> {
+        self.env.as_mut().charge_fee(fee)
+            .map_err(|e| Error::new(e))?;
+        // Tracking of fees on the commit level is purely for informational
+        // purposes to make debugging easier for developers.
+        self.commit_context().fees += fee;
+        Ok(())
+    }
+
+    /// Wrapper around charge_fee that converts cycles to native currency.
+    pub fn charge_cycles(&mut self, cycles: u64) -> Result<(), Error> {
+        self.charge_fee(cycles * WEI_PER_CYCLE)
+    }
     
     pub fn queue_task(
         &mut self,
@@ -209,17 +228,20 @@ impl ExecutionContext {
             initial_instruction_counter: ic_cdk::api::instruction_counter(),
             logs: Vec::new(),
             shared_buffer: Vec::new(),
+            fees: 0,
         });
     }
 
     fn commit_end(&mut self, title: String) {
         let instructions = ic_cdk::api::instruction_counter() - self.commit_context().initial_instruction_counter;
+        // TODO: Handle insufficient funds here without failing the entire execution.
+        self.charge_cycles(instructions);
         let commit = Commit {
             timestamp: ic_cdk::api::time(),
             title: title,
             logs: self.commit_context().logs.clone(),
             instructions,
-            fees: instructions * FEE_PER_INSTRUCTION,
+            fees: self.commit_context().fees,
         };
         self.env.commit(commit);
         self.commit_context = None;
@@ -234,6 +256,8 @@ pub struct CommitContext {
     pub logs: Vec<LogEntry>,
     // Shared buffer that the guest can read using copy_shared_buffer.
     pub shared_buffer: Vec<u8>,
+    // Fees incurred during the commit so far.
+    pub fees: u64,
 }
 
 pub struct AsyncResult {

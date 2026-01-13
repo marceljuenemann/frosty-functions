@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::env;
 use std::rc::Rc;
 
 use alloy::primitives::{Address, keccak256};
@@ -18,6 +19,7 @@ const CONSOLE_LOG_MAX_LEN: usize = 10_000;
 // Constants used in simulations.
 const SIMULATION_ADDRESS: &str = "0x1234567890abcdef1234567890abcdef12345678";
 
+const CYCLES_RAW_RAND: u64 = 5_400_000;
 
 type Ctx = Rc<RefCell<ExecutionContext>>;
 
@@ -98,6 +100,7 @@ fn console_log(mut caller: Caller<Ctx>, message_ptr: i32) {
         .unwrap_or_else(|e| format!("(failed to read log message: {})", e));
     ctx!(caller).commit_context().logs.push(LogEntry { level: LogType::Default, message: message.clone() });
     // TODO: Charge cycles for logs storage.
+    // TODO: Limit log size?
 }
 
 /// Writes the calldata into the provided buffer, which is expected to be of CALLDATA_SIZE.
@@ -197,6 +200,7 @@ fn evm_chain_id(mut caller: Caller<Ctx>) -> u64 {
 }
 
 fn ic_raw_rand(mut caller: Caller<Ctx>, promise_id: i32) -> Result<(), Error> {
+    ctx!(caller).charge_cycles(CYCLES_RAW_RAND)?;
     let is_simulation = env!(caller).is_simulation();
     ctx!(caller).queue_task(
         promise_id,

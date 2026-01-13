@@ -1,4 +1,6 @@
-use candid::{CandidType};
+use std::ops::Sub;
+
+use candid::{CandidType, Nat};
 use evm_rpc_types::{Hex32, Nat256};
 use serde::{Deserialize, Serialize};
 
@@ -46,7 +48,7 @@ pub struct Job {
     // Fees charged for the execution of this job. Excludes gas_used.
     pub fees: u64,
     // Gas used for transactions on the calling chain (e.g. depositGas).
-    pub gas_used: u64,
+    pub gas: u64,
 }
 
 impl Job {
@@ -57,8 +59,16 @@ impl Job {
             created_at: ic_cdk::api::time(),
             commit_ids: Vec::new(),
             fees: 0,
-            gas_used: 0,
+            gas: 0,
         }
+    }
+
+    pub fn total_cost(&self) -> u64 {
+        self.fees + self.gas
+    }
+
+    pub fn remaining_gas(&self) -> Nat {
+        return self.request.gas_payment.as_ref().clone().sub(self.total_cost());
     }
 }
 
