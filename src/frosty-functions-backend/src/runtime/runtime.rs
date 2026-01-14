@@ -4,8 +4,9 @@ use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
 
-use wasmi::{Error, Linker, WasmParams};
-use wasmi::{Engine, Module, TypedFunc, core::TrapCode};
+use ic_cdk::api::instruction_counter;
+use wasmi::{Error, Linker, TypedResumableCall, WasmParams};
+use wasmi::{Engine, Module, TypedFunc};
 
 use crate::runtime::api::{register_constants, register_host_functions};
 use crate::runtime::{Commit, LogEntry, LogType, RuntimeEnvironment};
@@ -18,8 +19,10 @@ const HOST_INSTRUCTION_LIMIT: u64 = 1_000_000_000;
 // Number of (guest) WASM instructions before we check gas/fuel again.
 // TODO: Calling back into a host function can be very expensive, so we
 // may still hit the host limit before checking. Ideally we would check within
-// each host function call as well. Possibly we can set the remaining fuel to
-// zero from there.
+// each host function call as well. We should be able to do that with call_hook
+// and then call set_fuel from there.
+// TODO: If we check fuel in each host function, we should be able to replace
+// this constant with just calculating the fuel instead (e.g. remaining instructions / 10).
 const FUEL_PER_BATCH: u64 = 10_000_000;
 
 // Conversion rate between cycles and native currency (wei).
@@ -90,23 +93,28 @@ impl Execution {
 
     /// Calls a function of the WASM module, handling fuel consumption and errors.
     fn call<Params: WasmParams>(&mut self, function: TypedFunc<Params, ()>, params: Params) -> Result<(), String> {
+        let mut result = function.call_resumable(&mut self.store, params);
         loop {
-            match function.call(&mut self.store, params) {
-                Ok(()) => {
-                    // Execution completed successfully
-                    let remaining_fuel = self.store.get_fuel().unwrap_or(0);
-                    let fuel_consumed = FUEL_PER_BATCH - remaining_fuel;
-                    // TODO: Move this away.
-                    ic_cdk::println!("WASM call completed. Fuel consumed: {:?}", fuel_consumed);
+            match result {
+                Ok(TypedResumableCall::Finished(_)) => {
                     return Ok(());
                 }
-                Err(e) => {
-                    if let Some(TrapCode::OutOfFuel) = e.as_trap_code() {
-                        // TODO: Deduct cycles from gas, then resume execution if more gas is available.
-                        // self.store.set_fuel(FUEL_PER_BATCH).map_err(|e| format!("Failed to refuel: {}", e))?;
-                        return Err(format!("Instruction limit reached: The number of instructions is currently limited to {}", FUEL_PER_BATCH));
+                Ok(TypedResumableCall::HostTrap(trap)) => {
+                    return Err(format!("Host function trapped: {}", trap.host_error()));
+                }
+                Ok(TypedResumableCall::OutOfFuel(resumable)) => {
+                    // TODO: Also re-check available gas here.
+                    let instructions = instruction_counter();
+                    // ic_cdk::api::debug_print(format!("Re-fueling WASM execution. Instruction counter: {}", instructions));
+                    if instructions >= HOST_INSTRUCTION_LIMIT {
+                        return Err(format!("Instruction limit reached: The number of host instructions is currently limited to {:#}", HOST_INSTRUCTION_LIMIT));
+                    } else {
+                        // Keep executing after refueling.
+                        self.store.set_fuel(FUEL_PER_BATCH).map_err(|e| format!("Failed to refuel: {}", e))?;
+                        result = resumable.resume(&mut self.store);
                     }
-                    // Other execution error (trap, validation, etc.)
+                }
+                Err(e) => {
                     return Err(format!("WASM execution failed: {}", e));
                 }
             }
