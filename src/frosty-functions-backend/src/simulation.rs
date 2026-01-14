@@ -6,26 +6,23 @@ use candid::CandidType;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 
-use crate::runtime::{Commit, JobRequest, RuntimeEnvironment};
+use crate::runtime::{Commit, Job, JobRequest, RuntimeEnvironment};
 use crate::runtime::{Execution};
 
 #[derive(Clone, Debug, CandidType)]
 pub struct SimulationResult {
+    pub job: Job,
     pub commits: Vec<Commit>,
-    pub fees: u64,
-    pub gas: u64,
     pub error: Option<String>,
 }
 
 pub fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<SimulationResult, String> {
-    let commits = Rc::new(RefCell::new(Vec::new()));
-    let env = SimulationEnv {
-        job_request: request.clone(),
-        commits: commits.clone(),
-        fees: 0,
-        gas: 0
-    };
-    let mut execution = Execution::run_main(wasm, env)?;
+    let env = Rc::new(RefCell::new(SimulationResult {
+        job: Job::new(request),
+        commits: Vec::new(),
+        error: None,
+    }));
+    let mut execution = Execution::run_main(wasm, env.clone())?;
 
     // spawn_017_compat executes the future until the first actual cansiter call. Since we
     // shouldn't actually have any cansiter calls during simulation, the following
@@ -37,14 +34,10 @@ pub fn simulate_job(request: JobRequest, wasm: &[u8]) -> Result<SimulationResult
         result_async.borrow_mut().replace(result);
     });
 
-    let result = result_local.borrow().clone().expect("Simulation did not complete synchronously");
-    let commits = commits.borrow().clone();
-    Ok(SimulationResult {
-        commits,
-        fees: 0, // TODO: Fix this.
-        gas: 0,
-        error: result.err(),
-    })
+    #[allow(unused_must_use)]
+    result_local.borrow().clone().expect("Simulation did not complete synchronously");
+    let result = env.borrow().clone();
+    Ok(result)
 }
 
 async fn event_loop(execution: &mut Execution) -> Result<(), String> {
@@ -69,30 +62,23 @@ async fn event_loop(execution: &mut Execution) -> Result<(), String> {
     }
 }
 
-struct SimulationEnv {
-    job_request: JobRequest,
-    commits: Rc<RefCell<Vec<Commit>>>,
-    fees: u64,
-    gas: u64
-}
-
-impl RuntimeEnvironment for SimulationEnv {
+impl RuntimeEnvironment for Rc<RefCell<SimulationResult>> {
     fn is_simulation(&self) -> bool {
         true
     }
 
-    fn job_request(&self) -> &JobRequest {
-        &self.job_request
+    fn job_request(&self) -> JobRequest {
+        self.borrow().job.request.clone()
     }
 
     fn charge_fee(&mut self, fee: u64) -> Result<(), String> {
         // TODO: Make gas balance configurable and check against it.
-        self.fees += fee;
+        self.borrow_mut().job.execution_fees += fee;
         Ok(())
     }
 
     fn commit(&mut self, commit: Commit) {
-        self.commits.borrow_mut().push(commit);
+        self.borrow_mut().commits.push(commit);
     }
 
     fn caller_wallet(&self) -> Option<IcpSigner> { 

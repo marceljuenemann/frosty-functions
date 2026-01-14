@@ -77,8 +77,8 @@ impl RuntimeEnvironment for ExecutionEnvironment {
         false
     }
 
-    fn job_request(&self) -> &JobRequest {
-        &self.job_request
+    fn job_request(&self) -> JobRequest {
+        self.job_request.clone()
     }
 
     fn charge_fee(&mut self, fee: u64) -> Result<(), String> {

@@ -9,7 +9,7 @@ pub trait RuntimeEnvironment {
 
     /// Returns the job request that triggered the current execution.
     // TODO: Probably move this out of the runtime and replace with env variables.
-    fn job_request(&self) -> &JobRequest;
+    fn job_request(&self) -> JobRequest;
 
     /// Charges the given fee in the calling currency using the gas balance.
     /// Returns an Error if insufficient funds are available.

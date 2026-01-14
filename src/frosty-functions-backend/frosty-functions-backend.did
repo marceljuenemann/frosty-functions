@@ -22,10 +22,11 @@ type FunctionState = record {
 };
 type Job = record {
   status : JobStatus;
-  fees : nat64;
+  base_fee : nat64;
+  execution_fees : nat64;
   request : JobRequest;
   created_at : nat64;
-  gas_used : nat64;
+  gas_fees : nat64;
   commit_ids : vec nat64;
 };
 type JobRequest = record {
@@ -50,7 +51,11 @@ type LogEntry = record { level : LogType; message : text };
 type LogType = variant { System; Default };
 type Result = variant { Ok : vec JobRequest; Err : text };
 type Result_1 = variant { Ok : SimulationResult; Err : text };
-type SimulationResult = record { error : opt text; commits : vec Commit };
+type SimulationResult = record {
+  job : Job;
+  error : opt text;
+  commits : vec Commit;
+};
 service : {
   // Deploy a new function.
   deploy_function : (FunctionDefinition) -> (DeployResult);

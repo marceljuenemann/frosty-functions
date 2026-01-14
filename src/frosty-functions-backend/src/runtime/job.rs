@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{chain::{Address, Chain}, repository::FunctionId};
 
+// Base fee per execution in wei.
+const BASE_FEE_WEI: u64 = 1_000_000_000_000;  // 1,000 gwei
+
 /// Request for executing a function. Currently these are created from EVM logs,
 /// but in the future they could also come from other sources such as other chains,
 /// recursive invocations etc.
@@ -45,10 +48,12 @@ pub struct Job {
     /// Execution is split into a series of commits. This field
     /// contains the IDs of all commits for this job made so far.
     pub commit_ids: Vec<u64>,
+    // Base fee charged for executing this job.
+    pub base_fee: u64,
     // Fees charged for the execution of this job. Excludes gas_used.
-    pub fees: u64,
+    pub execution_fees: u64,
     // Gas used for transactions on the calling chain (e.g. depositGas).
-    pub gas: u64,
+    pub gas_fees: u64,
 }
 
 impl Job {
@@ -58,13 +63,14 @@ impl Job {
             status: JobStatus::Pending,
             created_at: ic_cdk::api::time(),
             commit_ids: Vec::new(),
-            fees: 0,
-            gas: 0,
+            base_fee: BASE_FEE_WEI,  // TODO: Support different chains.
+            execution_fees: 0,
+            gas_fees: 0,
         }
     }
 
     pub fn total_cost(&self) -> u64 {
-        self.fees + self.gas
+        self.base_fee + self.execution_fees + self.gas_fees
     }
 
     pub fn remaining_gas(&self) -> Nat {
