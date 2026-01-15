@@ -73,5 +73,4 @@ service : {
   index_block : (Chain, nat64) -> (Result);
   init : () -> ();
   simulate_execution : (JobRequest, blob) -> (Result_1) query;
-  tmp_playground : () -> ();
 }

@@ -100,7 +100,7 @@ impl Execution {
                     return Ok(());
                 }
                 Ok(TypedResumableCall::HostTrap(trap)) => {
-                    return Err(format!("Host function trapped: {}", trap.host_error()));
+                    return Err(trap.host_error().to_string());
                 }
                 Ok(TypedResumableCall::OutOfFuel(resumable)) => {
                     // TODO: Also re-check available gas here.

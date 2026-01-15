@@ -21,10 +21,6 @@ pub trait RuntimeEnvironment {
     /// Returns an Error if insufficient funds are available.
     fn charge_gas(&mut self, gas: u64) -> Result<(), String>;
 
-    /// Allocates part of the gas balance for a native transaction. Returns an Error if 
-    /// insufficient funds are available.
-    //fn charge_gas(&self, fee: u64) -> Result<(), String>;
-
     /// Submits a commit to be stored persistently.
     fn commit(&mut self, commit: Commit);
 

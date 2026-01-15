@@ -71,21 +71,5 @@ fn simulate_execution(request: JobRequest, wasm: Vec<u8>) -> Result<SimulationRe
     crate::simulation::simulate_job(request, &wasm)
 }
 
-#[ic_cdk::update]
-async fn tmp_playground() {
-    // Measuring cycles.
-    ic_cdk::println!("Starting tmp_playground");
-
-    let start = ic_cdk::api::canister_cycle_balance();
-
-    let rand = ic_cdk::management_canister::raw_rand().await.unwrap();
-
-    let stop = ic_cdk::api::canister_cycle_balance();
-    let used = start - stop;
-    ic_cdk::println!("Cycles used: {}", used);
-
-    //    ic_cdk::println!("Random bytes: {:?}", rand);
-}
-
 // Enable Candid export
 ic_cdk::export_candid!();
