@@ -77,6 +77,12 @@ impl RuntimeEnvironment for Rc<RefCell<SimulationResult>> {
         Ok(())
     }
 
+    fn charge_gas(&mut self, gas: u64) -> Result<(), String> {
+        // TODO: Make gas balance configurable and check against it.
+        self.borrow_mut().job.gas_fees += gas;
+        Ok(())
+    }
+
     fn commit(&mut self, commit: Commit) {
         self.borrow_mut().commits.push(commit);
     }

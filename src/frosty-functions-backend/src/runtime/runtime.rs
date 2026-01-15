@@ -182,6 +182,10 @@ impl ExecutionContext {
         &*self.env
     }
 
+    pub fn env_mut(&mut self) -> &mut dyn RuntimeEnvironment {
+        &mut *self.env
+    }
+
     pub fn commit_context(&mut self) -> &mut CommitContext {
         self.commit_context.as_mut().expect("CommitContext missing")
     }

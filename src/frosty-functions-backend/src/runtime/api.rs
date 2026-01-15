@@ -24,6 +24,7 @@ const CYCLES_RAW_RAND: u64 = 5_400_000;
 // Signing on ICP is quite expensive, see https://docs.internetcomputer.org/references/t-sigs-how-it-works/#fees-for-the-t-ecdsa-production-key
 // TODO: Add costs for the cansiter call, which depends on the length of the message.
 const CYCLES_SIGN_MESSAGE: u64 = 26_153_846_153;
+const CYCLES_EVM_RPC_CALL: u64 = 1_000_000_000;  // TODO: Calculate exact value.
 
 type Ctx = Rc<RefCell<ExecutionContext>>;
 
@@ -146,6 +147,13 @@ fn evm_caller_wallet_deposit(mut caller: Caller<Ctx>, amount: u64, promise_id: i
         Chain::Evm(id) => id,
         _ => return Err(Error::new("CallerWallet.deposit can only be used on EVM chains".to_string())),
     };
+
+    // TODO: Get a more accurate gas estimate.
+    let gas_estimate = 21_000 * evm_chain.tmp_gas_price();
+    ctx.charge_cycles(CYCLES_EVM_RPC_CALL * 3 + CYCLES_SIGN_MESSAGE)?;
+    ctx.env_mut().charge_gas(gas_estimate + amount)
+        .map_err(|e| Error::new(e))?;
+
     // TODO: Refactor all this ugly code.
     let wallet = ctx.env().caller_wallet();
     let is_simulation = ctx.env().is_simulation();
@@ -158,7 +166,6 @@ fn evm_caller_wallet_deposit(mut caller: Caller<Ctx>, amount: u64, promise_id: i
                 let dummy_tx = [1u8; 32];
                 Ok(dummy_tx.to_vec())
             } else {
-                // TODO: Check gas balance first.
                 let tx = transfer_funds(evm_chain, wallet.unwrap().address(), amount).await?;
                 ic_cdk::println!("[#{}] Sent transaction with hash: 0x{}", promise_id, tx);
                 // TODO: Do add the transaction to the execution logs. We aren't even in a commit

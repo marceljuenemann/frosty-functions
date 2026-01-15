@@ -15,6 +15,12 @@ pub trait RuntimeEnvironment {
     /// Returns an Error if insufficient funds are available.
     fn charge_fee(&mut self, fee: u64) -> Result<(), String>;
 
+    /// Charges the given fee in the calling currency using the gas balance.
+    /// Gas fees will be accounted separately from executions fees as they
+    /// are charged by the calling chain rather than by ICP / Frosty.
+    /// Returns an Error if insufficient funds are available.
+    fn charge_gas(&mut self, gas: u64) -> Result<(), String>;
+
     /// Allocates part of the gas balance for a native transaction. Returns an Error if 
     /// insufficient funds are available.
     //fn charge_gas(&self, fee: u64) -> Result<(), String>;

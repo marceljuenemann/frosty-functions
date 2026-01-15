@@ -85,6 +85,10 @@ impl RuntimeEnvironment for ExecutionEnvironment {
         todo!()
     }
 
+    fn charge_gas(&mut self, gas: u64) -> Result<(), String> {
+        todo!()
+    }
+
     fn commit(&mut self, commit: Commit) {
         crate::storage::store_commit(&self.job_request, &commit)
             .expect("Failed to store commit");
