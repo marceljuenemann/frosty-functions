@@ -1,8 +1,13 @@
-use candid::{CandidType};
+use std::ops::Sub;
+
+use candid::{CandidType, Nat};
 use evm_rpc_types::{Hex32, Nat256};
 use serde::{Deserialize, Serialize};
 
 use crate::{chain::{Address, Chain}, repository::FunctionId};
+
+// Base fee per execution in wei.
+const BASE_FEE_WEI: u64 = 1_000_000_000_000;  // 1,000 gwei
 
 /// Request for executing a function. Currently these are created from EVM logs,
 /// but in the future they could also come from other sources such as other chains,
@@ -43,8 +48,12 @@ pub struct Job {
     /// Execution is split into a series of commits. This field
     /// contains the IDs of all commits for this job made so far.
     pub commit_ids: Vec<u64>,
-    // TODO: Add gas used etc.
-    // TODO: Info for timers, keep alive to cancel stale jobs etc. (probably in Execution only)
+    // Base fee charged for executing this job.
+    pub base_fee: u64,
+    // Fees charged for the execution of this job. Excludes gas_used.
+    pub execution_fees: u64,
+    // Gas used for transactions on the calling chain (e.g. depositGas).
+    pub gas_fees: u64,
 }
 
 impl Job {
@@ -54,7 +63,18 @@ impl Job {
             status: JobStatus::Pending,
             created_at: ic_cdk::api::time(),
             commit_ids: Vec::new(),
+            base_fee: BASE_FEE_WEI,  // TODO: Support different chains.
+            execution_fees: 0,
+            gas_fees: 0,
         }
+    }
+
+    pub fn total_cost(&self) -> u64 {
+        self.base_fee + self.execution_fees + self.gas_fees
+    }
+
+    pub fn remaining_gas(&self) -> Nat {
+        return self.request.gas_payment.as_ref().clone().sub(self.total_cost());
     }
 }
 
@@ -77,6 +97,8 @@ pub struct Commit {
     pub timestamp: u64,
     pub title: String,
     pub logs: Vec<LogEntry>,
+    pub instructions: u64,  // Host instructions used.
+    pub fees: u64,          // Fees charged for this commit.
 }
 
 /**

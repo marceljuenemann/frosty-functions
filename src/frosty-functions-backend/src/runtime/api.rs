@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::env;
 use std::rc::Rc;
 
 use alloy::primitives::{Address, keccak256};
@@ -18,6 +19,12 @@ const CONSOLE_LOG_MAX_LEN: usize = 10_000;
 // Constants used in simulations.
 const SIMULATION_ADDRESS: &str = "0x1234567890abcdef1234567890abcdef12345678";
 
+const CYCLES_RAW_RAND: u64 = 5_400_000;
+
+// Signing on ICP is quite expensive, see https://docs.internetcomputer.org/references/t-sigs-how-it-works/#fees-for-the-t-ecdsa-production-key
+// TODO: Add costs for the cansiter call, which depends on the length of the message.
+const CYCLES_SIGN_MESSAGE: u64 = 26_153_846_153;
+const CYCLES_EVM_RPC_CALL: u64 = 1_000_000_000;  // TODO: Calculate exact value.
 
 type Ctx = Rc<RefCell<ExecutionContext>>;
 
@@ -98,6 +105,7 @@ fn console_log(mut caller: Caller<Ctx>, message_ptr: i32) {
         .unwrap_or_else(|e| format!("(failed to read log message: {})", e));
     ctx!(caller).commit_context().logs.push(LogEntry { level: LogType::Default, message: message.clone() });
     // TODO: Charge cycles for logs storage.
+    // TODO: Limit log size?
 }
 
 /// Writes the calldata into the provided buffer, which is expected to be of CALLDATA_SIZE.
@@ -120,6 +128,8 @@ fn on_chain_id(mut caller: Caller<Ctx>) -> i64 {
 /// Writes the caller's wallet address as a UTF-16LE string into the provided buffer.
 /// The buffer is expected to be large enough to hold the address string.
 fn evm_caller_wallet_address(mut caller: Caller<Ctx>, buffer_ptr: i32) -> Result<(), Error> {
+    // TODO: Make async.
+    // TODO: Charge cycles for the inter-canister call.
     let address: Address = if env!(caller).is_simulation() {
         SIMULATION_ADDRESS.parse().unwrap()
     } else {
@@ -139,6 +149,13 @@ fn evm_caller_wallet_deposit(mut caller: Caller<Ctx>, amount: u64, promise_id: i
         Chain::Evm(id) => id,
         _ => return Err(Error::new("CallerWallet.deposit can only be used on EVM chains".to_string())),
     };
+
+    // TODO: Get a more accurate gas estimate.
+    let gas_estimate = 21_000 * evm_chain.tmp_gas_price();
+    ctx.charge_cycles(CYCLES_EVM_RPC_CALL * 3 + CYCLES_SIGN_MESSAGE)?;
+    ctx.env_mut().charge_gas(gas_estimate + amount)
+        .map_err(|e| Error::new(e))?;
+
     // TODO: Refactor all this ugly code.
     let wallet = ctx.env().caller_wallet();
     let is_simulation = ctx.env().is_simulation();
@@ -151,7 +168,6 @@ fn evm_caller_wallet_deposit(mut caller: Caller<Ctx>, amount: u64, promise_id: i
                 let dummy_tx = [1u8; 32];
                 Ok(dummy_tx.to_vec())
             } else {
-                // TODO: Check gas balance first.
                 let tx = transfer_funds(evm_chain, wallet.unwrap().address(), amount).await?;
                 ic_cdk::println!("[#{}] Sent transaction with hash: 0x{}", promise_id, tx);
                 // TODO: Do add the transaction to the execution logs. We aren't even in a commit
@@ -167,7 +183,8 @@ fn evm_caller_wallet_deposit(mut caller: Caller<Ctx>, amount: u64, promise_id: i
 /// Signs a EIP-191 message.
 // TOOD: Also expose lower level sign_hash to sign arbitrary hashes.  
 fn evm_caller_wallet_sign_message(mut caller: Caller<Ctx>, message_ptr: i32, promise_id: i32) -> Result<(), Error> {
-    let message = read_buffer(&caller, message_ptr, BUFFER_MAX_LEN)?;
+    ctx!(caller).charge_cycles(CYCLES_SIGN_MESSAGE)?;
+    let message = read_buffer(&caller, message_ptr, 100_000)?;
     let mut ctx = ctx!(caller);
     let wallet = ctx.env().caller_wallet();
     // TODO: Refactor this. Probably create an AsyncContext that is passed to the closure.
@@ -197,6 +214,7 @@ fn evm_chain_id(mut caller: Caller<Ctx>) -> u64 {
 }
 
 fn ic_raw_rand(mut caller: Caller<Ctx>, promise_id: i32) -> Result<(), Error> {
+    ctx!(caller).charge_cycles(CYCLES_RAW_RAND)?;
     let is_simulation = env!(caller).is_simulation();
     ctx!(caller).queue_task(
         promise_id,
