@@ -21,6 +21,10 @@ const SIMULATION_ADDRESS: &str = "0x1234567890abcdef1234567890abcdef12345678";
 
 const CYCLES_RAW_RAND: u64 = 5_400_000;
 
+// Signing on ICP is quite expensive, see https://docs.internetcomputer.org/references/t-sigs-how-it-works/#fees-for-the-t-ecdsa-production-key
+// TODO: Add costs for the cansiter call, which depends on the length of the message.
+const CYCLES_SIGN_MESSAGE: u64 = 26_153_846_153;
+
 type Ctx = Rc<RefCell<ExecutionContext>>;
 
 macro_rules! ctx {
@@ -170,7 +174,8 @@ fn evm_caller_wallet_deposit(mut caller: Caller<Ctx>, amount: u64, promise_id: i
 /// Signs a EIP-191 message.
 // TOOD: Also expose lower level sign_hash to sign arbitrary hashes.  
 fn evm_caller_wallet_sign_message(mut caller: Caller<Ctx>, message_ptr: i32, promise_id: i32) -> Result<(), Error> {
-    let message = read_buffer(&caller, message_ptr, BUFFER_MAX_LEN)?;
+    ctx!(caller).charge_cycles(CYCLES_SIGN_MESSAGE)?;
+    let message = read_buffer(&caller, message_ptr, 100_000)?;
     let mut ctx = ctx!(caller);
     let wallet = ctx.env().caller_wallet();
     // TODO: Refactor this. Probably create an AsyncContext that is passed to the closure.
