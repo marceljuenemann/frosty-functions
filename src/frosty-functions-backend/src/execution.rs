@@ -22,18 +22,18 @@ pub fn schedule_job(job_request: &JobRequest) {
     // TODO: Don't schedule more than X jobs at once.
     let job_request = job_request.clone();
     let timer_id = set_timer(Duration::from_secs(0), async move {
+        update_job_status(&job_request, JobStatus::Executing);
         let wasm = function.unwrap().definition.binary;
-        let result = execute_job(job_request, &wasm).await;
-        // TODO: Handle errors properly here. Ideally change to void return type.
-        if result.is_err() {
-            ic_cdk::println!("Job execution failed: {}", result.as_ref().unwrap_err());
-        }
+        let result =  match execute_job(&job_request, &wasm).await {
+            Ok(_) => JobStatus::Completed,
+            Err(err) => JobStatus::Failed(err),
+        };
+        update_job_status(&job_request, result);
     });
 }
 
 // TODO: Better error handling.
-pub async fn execute_job(request: JobRequest, wasm: &[u8]) -> Result<(), String> {
-    update_job_status(&request, JobStatus::Executing);
+async fn execute_job(request: &JobRequest, wasm: &[u8]) -> Result<(), String> {
     let env = ExecutionEnvironment {
         job_request: request.clone(),
         caller_wallet: signer_for_address(&request.caller).await?,
@@ -41,7 +41,6 @@ pub async fn execute_job(request: JobRequest, wasm: &[u8]) -> Result<(), String>
 
     // TODO: Enable long running tasks in main().
     let mut execution = Execution::run_main(wasm, env)?;
-    ic_cdk::println!("run_main returned");  // TODO: remove
 
     let mut futures = FuturesUnordered::new();
     loop {
@@ -51,20 +50,15 @@ pub async fn execute_job(request: JobRequest, wasm: &[u8]) -> Result<(), String>
             futures.push(async_future);
         }
 
-        ic_cdk::println!("Awaiting next future");  // TODO: remove
         match futures.next().await {
             Some(result) => {
                 execution.callback(result)?;
             },
             None => {
-                println!("No more futures!");
                 break;
             }
         }
     }
-
-    // TODO: Handled errors
-    update_job_status(&request, JobStatus::Completed);
     Ok(())
 }
 
