@@ -128,8 +128,7 @@ See instructions [here](https://internetcomputer.org/docs/building-apps/develope
 
 ## License
 
-Licensed under the Apache License, Version 2.0.
-See the [LICENSE](./LICENSE) file for the full text.
+This project is licensed under the AGPL to ensure that any improvements are shared back with the community. If you deploy a modified version, you must provide the source code to your users. See full [LICENSE](./LICENSE)
 
 Copyright ©2025 Marcel Juenemann
 
