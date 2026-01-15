@@ -128,6 +128,8 @@ fn on_chain_id(mut caller: Caller<Ctx>) -> i64 {
 /// Writes the caller's wallet address as a UTF-16LE string into the provided buffer.
 /// The buffer is expected to be large enough to hold the address string.
 fn evm_caller_wallet_address(mut caller: Caller<Ctx>, buffer_ptr: i32) -> Result<(), Error> {
+    // TODO: Make async.
+    // TODO: Charge cycles for the inter-canister call.
     let address: Address = if env!(caller).is_simulation() {
         SIMULATION_ADDRESS.parse().unwrap()
     } else {

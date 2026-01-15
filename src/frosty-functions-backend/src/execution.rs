@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use alloy::signers::icp::IcpSigner;
+use candid::Nat;
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use ic_cdk_timers::set_timer;
@@ -82,11 +83,25 @@ impl RuntimeEnvironment for ExecutionEnvironment {
     }
 
     fn charge_fee(&mut self, fee: u64) -> Result<(), String> {
-        todo!()
+        crate::storage::update_job(&self.job_request, |job| {
+            let remaining = job.remaining_gas();
+            if Nat::from(fee) > remaining {
+                return Err(format!("Insufficient gas. Tried to charge {}, but only {} remaining", fee, remaining));
+            }
+            job.execution_fees += fee;
+            Ok(())
+        })
     }
 
     fn charge_gas(&mut self, gas: u64) -> Result<(), String> {
-        todo!()
+        crate::storage::update_job(&self.job_request, |job| {
+            let remaining = job.remaining_gas();
+            if Nat::from(gas) > remaining {
+                return Err(format!("Insufficient gas. Tried to charge {}, but only {} remaining", gas, remaining));
+            }
+            job.gas_fees += gas;
+            Ok(())
+        })
     }
 
     fn commit(&mut self, commit: Commit) {
