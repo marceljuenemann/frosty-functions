@@ -52,27 +52,27 @@ Life of a Frosty Function:
 - [x] Async functions with Promises
 - [x] console.log support
 - [x] Verifiable Random Function (VRF)
-- [ ] Wallet.forCaller
+- [ ] Gas payments
+  - [x] Deposit gas into wallet
+  - [x] Charge for instructions
+  - [x] Charge for outcalls
+  - [ ] Gas refunds
+- [ ] Wallet and Provider interfaces
   - [x] address()
   - [x] signMessage()
   - [ ] eth_sendTransaction
   - [ ] eth_call
   - [ ] eth_getLogs
-- [ ] Gas payments
-  - [x] Deposit gas into wallet
-  - [ ] Charge for instructions
-  - [ ] Charge for time
-  - [ ] Charge for outcalls
  - [ ] Memory limit
  - [ ] Server-side builds (canister?)
  - [ ] Automated indexing
 
+ - [ ] ABI & Solidity support (compile-time imports & transformations)
+ - [ ] Long-running calls (no-op async call when reaching ICP's 40B instruction limit)
  - [ ] fetch (HTTP Outcalls)
  - [ ] Timers (delay() Promise)
- - [ ] Long-running calls (setTimer(0) when reaching ICP's 40B instruction limit)
  - [ ] Canister calls
  - [ ] Invoke other Frosty Functions (including recursively) 
- - [ ] ABI & Solidity support (compile-time imports & transformations)
  - [ ] x402 support (invoke via REST)
  - [ ] Cross-chain support
    - [ ] Bitcoin
