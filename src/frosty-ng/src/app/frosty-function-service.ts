@@ -131,9 +131,10 @@ export class FrostyFunctionService {
   }
 
   async deploy(definition: FunctionDefinition): Promise<DeploymentResult> {
-    const result = await (await (await this.actor()).deploy_function(definition)).result;
-    if ('Err' in result) {
-      return { error: `${result.Err}` };
+    const apiKey = (globalThis as any).frostyApiKey;
+    const result = await (await (await this.actor()).deploy_function(definition, apiKey ? [apiKey] : []) as any).result;
+    if ('Error' in result) {
+      return { error: `${result.Error}` };
     } else if ('Duplicate' in result) {
       return { hash: encodeHex(result.Duplicate as Uint8Array), duplicate: true };
     } else if ('Success' in result) {

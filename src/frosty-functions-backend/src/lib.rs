@@ -8,15 +8,22 @@ mod simulation;
 mod state;
 mod storage;
 
+use std::cell::RefCell;
+
 use alloy::{signers::Signer};
 use chain::{Chain};
 use evm_rpc_types::Nat256;
 
 use crate::{execution::schedule_job, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, runtime::{Commit, Job, JobRequest}, simulation::SimulationResult, state::{init_state, read_state}};
 
+// TODO: Remove again
+thread_local! {
+    static VALID_API_KEYS: RefCell<Option<Vec<String>>> = RefCell::new(None);
+}
+
 #[ic_cdk::update]
 async fn init() {
-    // TODO: Restrict to controllers.
+    // TODO: Just trigger from an init hook.
     init_state().await;
 }
 
@@ -43,8 +50,26 @@ fn get_job(chain: Chain, job_id: Nat256) -> Option<Job> {
 
 /// Deploy a new function.
 #[ic_cdk::update]
-fn deploy_function(definition: FunctionDefinition) -> DeployResult {
+fn deploy_function(definition: FunctionDefinition, api_key: Option<String>) -> DeployResult {
+    let valid_keys = VALID_API_KEYS.with_borrow(|keys| keys.clone().unwrap_or_default());
+    if !valid_keys.is_empty() {
+        if api_key.is_none() {
+            return DeployResult::Error("Deployment is currently restricted to private alpha users. Reach out to frosty@web3.services for an API key".to_string());
+        } else if !valid_keys.contains(&api_key.unwrap()) {
+            return DeployResult::Error("Invalid API key provided.".to_string());
+        }
+    }
     crate::repository::deploy_function(definition)
+}
+
+#[ic_cdk::update]
+fn tmp_set_api_keys(admin_key: String, api_keys: Option<Vec<String>>) -> Result<(), String> {
+    let keys = VALID_API_KEYS.with_borrow(|keys| keys.clone());
+    if keys.is_some() && keys.unwrap().get(0) != Some(&admin_key) {
+        return Err("Invalid admin key".to_string());
+    }
+    VALID_API_KEYS.replace(api_keys);
+    Ok(())
 }
 
 /// Looks for jobs in the specified block on the given chain.

@@ -51,6 +51,7 @@ type LogEntry = record { level : LogType; message : text };
 type LogType = variant { System; Default };
 type Result = variant { Ok : vec JobRequest; Err : text };
 type Result_1 = variant { Ok : SimulationResult; Err : text };
+type Result_2 = variant { Ok; Err : text };
 type SimulationResult = record {
   job : Job;
   error : opt text;
@@ -58,7 +59,7 @@ type SimulationResult = record {
 };
 service : {
   // Deploy a new function.
-  deploy_function : (FunctionDefinition) -> (DeployResult);
+  deploy_function : (FunctionDefinition, opt text) -> (DeployResult);
   get_commit : (nat64) -> (opt Commit) query;
   get_evm_address : () -> (text) query;
   // Retrieve function definition and state by its ID.
@@ -73,4 +74,5 @@ service : {
   index_block : (Chain, nat64) -> (Result);
   init : () -> ();
   simulate_execution : (JobRequest, blob) -> (Result_1) query;
+  tmp_set_api_keys : (text, opt vec text) -> (Result_2);
 }
