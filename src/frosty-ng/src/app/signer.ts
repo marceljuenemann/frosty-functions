@@ -39,6 +39,7 @@ export class SignerService {
         return '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
         //return '0x5FbDB2315678afecb367f032d93F642f64180aa3';
       case 42161:  // Arbitrum One
+        return '0x8cb969fbba3adc0cc1347116396b3ed1d0bafea1';
       case 421614:  // Arbitrum Sepolia
         return '0xcAcbb4E46F2a68e3d178Fb98dCaCe59d12d54CBc';
       default:

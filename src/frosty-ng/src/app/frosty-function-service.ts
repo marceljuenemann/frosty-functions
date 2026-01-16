@@ -25,8 +25,8 @@ export interface SimulationResultExt extends SimulationResult {
 
 export type DeploymentResult = {hash?: string, duplicate?: boolean, error?: string};
 
-const CANISTER_ID = "uxrrr-q7777-77774-qaaaq-cai";  // Localhost
-// const CANISTER_ID = "n6va3-cyaaa-aaaao-qk6pq-cai";  // Production
+// const CANISTER_ID = "uxrrr-q7777-77774-qaaaq-cai";  // Localhost
+const CANISTER_ID = "n6va3-cyaaa-aaaao-qk6pq-cai";  // Production
 
 @Injectable({
   providedIn: 'root',
@@ -37,16 +37,8 @@ export class FrostyFunctionService {
   private async actor(): Promise<ActorSubclass<ActorMethodMappedExtended<_SERVICE>>> {
     if (this._actor) return this._actor;
     let agent = await HttpAgent.create({
-      host: 'http://localhost:4943',
-      verifyQuerySignatures: false  // TODO: Remove in production
-    });
-    await agent.fetchRootKey();  // TODO: Remove in production
-    // Production
-    /*
-    agent = await HttpAgent.create({
       host: 'https://icp-api.io',
     });
-    */
     return this._actor = Actor.createActorWithExtendedDetails<_SERVICE>(
       idlFactory,
       { agent, canisterId: CANISTER_ID }

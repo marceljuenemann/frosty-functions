@@ -86,11 +86,15 @@ Latest version of the contract
 
 * Arbitrum Sepolia (testnet):
   * 0xcAcbb4E46F2a68e3d178Fb98dCaCe59d12d54CBc for owner 0xda824f554c42ecd28a74a037c70fa0b5bf447bb0 (localhost)
-* Arbitrum One: https://arbiscan.io/address/0xe712a7e50aba019a6d225584583b09c4265b037b
+* Arbitrum One: https://arbiscan.io/address/0x8cb969fbba3adc0cc1347116396b3ed1d0bafea1
 
 ## Canister deployments
 
+* Frontend: https://vayms-xiaaa-aaaao-qmb6q-cai.icp0.io/
 * Backend: https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=n6va3-cyaaa-aaaao-qk6pq-cai
+
+* Example function: https://vayms-xiaaa-aaaao-qmb6q-cai.icp0.io/functions/0x0dbfc27a4145ff75aa1c3bb153331e5a88d077dd175444b5bd52aa6d8b3c411b
+  * Example execution: https://vayms-xiaaa-aaaao-qmb6q-cai.icp0.io/chains/eip155:42161/jobs/1
 
 ## Local development
 

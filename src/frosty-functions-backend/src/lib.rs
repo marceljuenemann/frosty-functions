@@ -14,7 +14,7 @@ use alloy::{signers::Signer};
 use chain::{Chain};
 use evm_rpc_types::Nat256;
 
-use crate::{execution::schedule_job, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, runtime::{Commit, Job, JobRequest}, simulation::SimulationResult, state::{init_state, read_state}};
+use crate::{chain::EvmChain, execution::schedule_job, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, runtime::{Commit, Job, JobRequest}, simulation::SimulationResult, state::{init_state, read_state}};
 
 // TODO: Remove again
 thread_local! {
@@ -82,6 +82,9 @@ fn tmp_set_api_keys(admin_key: String, api_keys: Option<Vec<String>>) -> Result<
 async fn index_block(chain: Chain, block_number: u64) -> Result<Vec<JobRequest>, String> {
     match &chain {
         Chain::Evm(evm_chain) => {
+            if evm_chain != &EvmChain::ArbitrumOne {
+                return Err("Only Arbitrum One is supported right now".to_string());
+            }
             let jobs = crate::evm::index_block(evm_chain, block_number).await?;
             for job in &jobs {
                 schedule_job(job);

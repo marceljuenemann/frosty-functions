@@ -17,7 +17,7 @@ const CHAIN: Chain = { Evm: { Localhost: null } };
 //  const CHAIN: Chain = { Evm: { ArbitrumSepolia: null } };
 
 // TODO: Move to a config object
-export const SCANNER_URL = 'https://sepolia.arbiscan.io';
+export const SCANNER_URL = 'https://arbiscan.io';
 
 @Component({
   selector: 'app-invoke-function',
@@ -27,8 +27,6 @@ export const SCANNER_URL = 'https://sepolia.arbiscan.io';
 })
 export class InvokeFunctionComponent {
   readonly chainOptions = [
-    { value: 'localhost', label: 'Localhost' },
-    { value: 'arbitrum-sepolia', label: 'Arbitrum Sepolia' },
     { value: 'arbitrum-one', label: 'Arbitrum One' },
   ];
 

@@ -140,7 +140,7 @@ pub fn evm_chain_id(chain: EvmChain) -> u64 {
 // TODO: Move this into a config file. Maybe make it shareable with frontend as well?
 fn bridge_address(chain: &EvmChain) -> Address{
     match chain {
-        EvmChain::ArbitrumOne => "0xe712A7e50abA019A6d225584583b09C4265B037B",
+        EvmChain::ArbitrumOne => "0x8cb969fbba3adc0cc1347116396b3ed1d0bafea1",
         EvmChain::ArbitrumSepolia => "0xcAcbb4E46F2a68e3d178Fb98dCaCe59d12d54CBc",
         EvmChain::Localhost => "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"
     }.parse().unwrap()
