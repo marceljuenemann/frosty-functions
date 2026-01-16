@@ -21,13 +21,22 @@
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "loader": {
-              ".as": "text"
+              ".as": "text",
+              ".ttf": "file",
+              ".woff": "file",
+              ".woff2": "file"
             },
+            "externalDependencies": [
+              "fs",
+              "path",
+              "module",
+              "url"
+            ],
             "assets": [
               {
                 "glob": "**/*",
-                "input": "../../node_modules/monaco-editor",
-                "output": "/assets/monaco/"
+                "input": "../../node_modules/monaco-editor/min",
+                "output": "/assets/monaco/min"
               },
               {
                 "glob": "**/*",
@@ -47,8 +56,8 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "500kB",
-                  "maximumError": "1MB"
+                  "maximumWarning": "4500kB",
+                  "maximumError": "5MB"
                 },
                 {
                   "type": "anyComponentStyle",

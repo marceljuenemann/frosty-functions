@@ -11,12 +11,13 @@
 </div>
 
 <div class="mb-3">
-  @if (this.compilationResult) {
+  @let compilationResult = this.compilationResult();
+  @if (compilationResult) {
     <!-- 1. Compilation result -->
-    @if (!this.compilationResult.success) {
+    @if (!compilationResult.success) {
       <div class="alert alert-danger" role="alert">
-        <div><b>Compilation Error: {{ this.compilationResult.error }}</b></div>
-        <pre style="max-height: 300px">{{ this.compilationResult.logs }}</pre>
+        <div><b>Compilation Error: {{ compilationResult.error }}</b></div>
+        <pre style="max-height: 300px">{{ compilationResult.logs }}</pre>
       </div>
     } @else {
       <div class="alert alert-success mb-3" role="alert">

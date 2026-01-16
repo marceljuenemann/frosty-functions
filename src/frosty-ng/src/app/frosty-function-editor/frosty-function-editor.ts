@@ -19,7 +19,7 @@ type SimulationState =
 export class FrostyFunctionEditor {
   code = exampleCode;
 
-  compilationResult: CompilationResult | null = null
+  compilationResult = signal<CompilationResult | null>(null);
   watUrl: string | null = null
   wasmUrl: string | null = null
 
@@ -30,12 +30,12 @@ export class FrostyFunctionEditor {
   constructor(private frostyFunctionService: FrostyFunctionService) {}
 
   async simulate() {
-    await this.compile();
-    if (!this.compilationResult?.success) return
+    const compilationResult = await this.compile();
+    if (!compilationResult.success) return
 
     try {
       this.simulation.set({status: 'pending'});
-      const result = await this.frostyFunctionService.simulate(this.compilationResult.wasm)
+      const result = await this.frostyFunctionService.simulate(compilationResult.wasm)
       this.simulation.set({status: 'done', result});
     } catch (error) {
       error = error instanceof Error ? error : new Error(`${error}`)
@@ -44,11 +44,11 @@ export class FrostyFunctionEditor {
   }
 
   async deploy() {
-    await this.compile();
-    if (!this.compilationResult?.success) return
+    const compilationResult = await this.compile();
+    if (!compilationResult.success) return
     this.deploying.set(true);
     this.deployment.set(await this.frostyFunctionService.deploy({
-      binary: this.compilationResult.wasm,
+      binary: compilationResult.wasm,
       source: this.code,
       // TODO: Set to something meaningful.
       compiler: "frosty-ng unstable alpha (client side)"
@@ -63,11 +63,12 @@ export class FrostyFunctionEditor {
       this.watUrl = URL.createObjectURL(new Blob([result.wat], { type: 'text/plain;charset=utf-8' }));
       this.wasmUrl = URL.createObjectURL(new Blob([result.wasm as BlobPart], { type: 'application/wasm' }));
     }
-    return this.compilationResult = result;
+    this.compilationResult.set(result);
+    return result;
   }
 
   private reset() {
-    this.compilationResult = null;
+    this.compilationResult.set(null);
     if (this.watUrl) {
       URL.revokeObjectURL(this.watUrl);
       this.watUrl = null;

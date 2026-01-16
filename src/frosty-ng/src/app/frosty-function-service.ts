@@ -1,12 +1,12 @@
 import { Injectable } from '@angular/core';
 import { idlFactory } from 'declarations/frosty-functions-backend';
-import asc from "assemblyscript/asc";
 import { _SERVICE, JobRequest, FunctionDefinition, DeployResult, FunctionState, Chain, Result_1, Result, Job, Commit, SimulationResult } from 'declarations/frosty-functions-backend/frosty-functions-backend.did';
 import { Actor, ActorMethodMappedExtended, ActorSubclass, HttpAgent } from '@icp-sdk/core/agent';
 import { FROSTY_SOURCES, RUNTIME_SOURCE } from '../../../assembly/sources';
 import { decodeHex, encodeHex } from './util';
 import { TransactionReceipt } from 'ethers';
 import { interval, Observable, switchMap, takeWhile } from 'rxjs';
+import type { APIOptions } from 'assemblyscript/asc';
 
 export type CompilationResult = {
   success: true
@@ -57,10 +57,11 @@ export class FrostyFunctionService {
    * Compiles the provided function code into a WebAssembly binary.
    */
   async compile(code: string): Promise<CompilationResult> {
+    const asc = await import("assemblyscript/asc");
     const stdout = asc.createMemoryStream()
 
     const outputs = new Map<string, string | Uint8Array>()
-    const config: asc.APIOptions = {
+    const config: APIOptions = {
       stdout,
       stderr: stdout,
       readFile: (name, basedir) => {
