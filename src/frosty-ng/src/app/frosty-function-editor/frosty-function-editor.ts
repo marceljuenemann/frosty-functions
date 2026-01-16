@@ -89,4 +89,8 @@ export class FrostyFunctionEditor {
       this.simulate();
     }
   }
+
+  formatGwei(amount: bigint): string {
+    return `${amount / BigInt(1_000_000_000)} gwei`;
+  }
 }

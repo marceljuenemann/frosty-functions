@@ -70,7 +70,8 @@
               <span class="badge bg-success">Completed</span>
             }
             @case ('failed') {
-              <span class="badge bg-danger">Failed</span>
+              <span class="badge bg-danger">Failed</span>&nbsp;
+              <i>{{ $any(job.status).Failed }}</i>
             }
             @default {
               <span class="badge bg-warning">Unknown</span>

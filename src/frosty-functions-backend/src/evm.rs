@@ -142,6 +142,6 @@ fn bridge_address(chain: &EvmChain) -> Address{
     match chain {
         EvmChain::ArbitrumOne => "0xe712A7e50abA019A6d225584583b09C4265B037B",
         EvmChain::ArbitrumSepolia => "0xcAcbb4E46F2a68e3d178Fb98dCaCe59d12d54CBc",
-        EvmChain::Localhost => "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+        EvmChain::Localhost => "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"
     }.parse().unwrap()
 }

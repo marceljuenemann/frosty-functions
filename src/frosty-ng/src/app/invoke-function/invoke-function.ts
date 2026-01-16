@@ -10,6 +10,8 @@ import { decodeHex } from '../util';
 
 const GWEI = BigInt(1_000_000_000);
 
+const DEFAULT_GAS_GWEI = 1024;
+
 // TODO: Configurable
 const CHAIN: Chain = { Evm: { Localhost: null } };
 //  const CHAIN: Chain = { Evm: { ArbitrumSepolia: null } };
@@ -34,7 +36,7 @@ export class InvokeFunctionComponent {
   form = new FormGroup({
     chain: new FormControl('localhost', [Validators.required]),
     calldata: new FormControl('0xdeadbeef', [Validators.pattern(/^0x([a-fA-F0-9][a-fA-F0-9])*$/)]),
-    amount: new FormControl(1, [Validators.required, Validators.min(1)])
+    amount: new FormControl(DEFAULT_GAS_GWEI, [Validators.required, Validators.min(1)])
   });
 
   // There's three UI states for each step: null (not started), 'pending', and a value (completed).

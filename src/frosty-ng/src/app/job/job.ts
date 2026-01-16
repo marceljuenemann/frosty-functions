@@ -72,6 +72,7 @@ export class JobComponent {
   }
 
   jobStatus(job: Job): string {
+    // TODO: Move to ic-reactor for better typing (hopefully).
     return Object.keys(job.status)[0].toLowerCase();
   }
 

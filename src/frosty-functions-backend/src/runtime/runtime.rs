@@ -4,13 +4,32 @@ use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
 
-use wasmi::{Linker, WasmParams};
-use wasmi::{Engine, Module, TypedFunc, core::TrapCode};
+use ic_cdk::api::instruction_counter;
+use wasmi::{Error, Linker, TypedResumableCall, WasmParams};
+use wasmi::{Engine, Module, TypedFunc};
 
 use crate::runtime::api::{register_constants, register_host_functions};
 use crate::runtime::{Commit, LogEntry, LogType, RuntimeEnvironment};
 
-const FUEL_PER_BATCH: u64 = 1_000_000;
+// Maximum number of host (IC) instructions per job.
+// TODO: Increase this except for simulations.
+// TODO: Remove the limit altogether by yielding control back to IC.
+const HOST_INSTRUCTION_LIMIT: u64 = 1_000_000_000;
+
+// Number of (guest) WASM instructions before we check gas/fuel again.
+// TODO: Calling back into a host function can be very expensive, so we
+// may still hit the host limit before checking. Ideally we would check within
+// each host function call as well. We should be able to do that with call_hook
+// and then call set_fuel from there.
+// TODO: If we check fuel in each host function, we should be able to replace
+// this constant with just calculating the fuel instead (e.g. remaining instructions / 10).
+const FUEL_PER_BATCH: u64 = 10_000_000;
+
+// Conversion rate between cycles and native currency (wei).
+// TODO: Calculate dynamically based on XDR:ETH price.
+// Note: Add the time of writing, 1 cycle costs approximatey 430 wei,
+// but we need to leave some margin for price fluctuations.
+const WEI_PER_CYCLE: u64 = 1000;
 
 /// Runtime state for a job execution. All methods are synchronous and the caller is expected
 /// to handle scheudling of async operations.
@@ -34,9 +53,8 @@ impl Execution {
 
         let context = Rc::new(RefCell::new(context));
         let mut execution = Self::init(wasm, context)?;
-        execution.ctx().borrow_mut().log(format!("Instantiated WASM module"));
+        execution.ctx().borrow_mut().log(format!("WASM module instantiated"));
         execution.call(execution.fn_main, ())?;
-
         execution.ctx().borrow_mut().commit_end("main()".to_string());
         // TODO: Return ExecutionResult of main as well.
         Ok(execution)
@@ -75,23 +93,28 @@ impl Execution {
 
     /// Calls a function of the WASM module, handling fuel consumption and errors.
     fn call<Params: WasmParams>(&mut self, function: TypedFunc<Params, ()>, params: Params) -> Result<(), String> {
+        let mut result = function.call_resumable(&mut self.store, params);
         loop {
-            match function.call(&mut self.store, params) {
-                Ok(()) => {
-                    // Execution completed successfully
-                    let remaining_fuel = self.store.get_fuel().unwrap_or(0);
-                    let fuel_consumed = FUEL_PER_BATCH - remaining_fuel;
-                    // TODO: Move this away.
-                    ic_cdk::println!("WASM call completed. Fuel consumed: {:?}", fuel_consumed);
+            match result {
+                Ok(TypedResumableCall::Finished(_)) => {
                     return Ok(());
                 }
-                Err(e) => {
-                    if let Some(TrapCode::OutOfFuel) = e.as_trap_code() {
-                        // TODO: Deduct cycles from gas, then resume execution if more gas is available.
-                        // self.store.set_fuel(FUEL_PER_BATCH).map_err(|e| format!("Failed to refuel: {}", e))?;
-                        return Err("WASM execution ran out of fuel".to_string());
+                Ok(TypedResumableCall::HostTrap(trap)) => {
+                    return Err(trap.host_error().to_string());
+                }
+                Ok(TypedResumableCall::OutOfFuel(resumable)) => {
+                    // TODO: Also re-check available gas here.
+                    let instructions = instruction_counter();
+                    // ic_cdk::api::debug_print(format!("Re-fueling WASM execution. Instruction counter: {}", instructions));
+                    if instructions >= HOST_INSTRUCTION_LIMIT {
+                        return Err(format!("Instruction limit reached: The number of host instructions is currently limited to {:#}", HOST_INSTRUCTION_LIMIT));
+                    } else {
+                        // Keep executing after refueling.
+                        self.store.set_fuel(FUEL_PER_BATCH).map_err(|e| format!("Failed to refuel: {}", e))?;
+                        result = resumable.resume(&mut self.store);
                     }
-                    // Other execution error (trap, validation, etc.)
+                }
+                Err(e) => {
                     return Err(format!("WASM execution failed: {}", e));
                 }
             }
@@ -112,6 +135,7 @@ impl Execution {
             Err(err) => {
                 let title = format!("Rejecting Promise #{}: {}", result.promise_id, result.description);
                 self.with_commit(title, |exec| {
+                    // TODO: Proper error serialization with an error code.
                     exec.ctx().borrow_mut().log(format!("Promise rejected with error: {}", err));
                     let err_bytes = err.as_bytes().to_vec();  // TODO: Convert to UTF-16?
                     let err_len = err_bytes.len() as i32;
@@ -158,12 +182,33 @@ impl ExecutionContext {
         &*self.env
     }
 
+    pub fn env_mut(&mut self) -> &mut dyn RuntimeEnvironment {
+        &mut *self.env
+    }
+
     pub fn commit_context(&mut self) -> &mut CommitContext {
         self.commit_context.as_mut().expect("CommitContext missing")
     }
 
     pub fn log(&mut self, message: String) {
         self.commit_context().logs.push(LogEntry { level: LogType::System, message });
+    }
+
+    /// Charges the given fee in the calling currency. Returns an Error if 
+    /// insufficient funds are available.
+    // TODO: Change Error type to something better.
+    pub fn charge_fee(&mut self, fee: u64) -> Result<(), Error> {
+        self.env.as_mut().charge_fee(fee)
+            .map_err(|e| Error::new(e))?;
+        // Tracking of fees on the commit level is purely for informational
+        // purposes to make debugging easier for developers.
+        self.commit_context().fees += fee;
+        Ok(())
+    }
+
+    /// Wrapper around charge_fee that converts cycles to native currency.
+    pub fn charge_cycles(&mut self, cycles: u64) -> Result<(), Error> {
+        self.charge_fee(cycles * WEI_PER_CYCLE)
     }
     
     pub fn queue_task(
@@ -191,14 +236,24 @@ impl ExecutionContext {
         if self.commit_context.is_some() {
             panic!("CommitContext already present");
         }
-        self.commit_context = Some(CommitContext::default());
+        self.commit_context = Some(CommitContext {
+            initial_instruction_counter: ic_cdk::api::instruction_counter(),
+            logs: Vec::new(),
+            shared_buffer: Vec::new(),
+            fees: 0,
+        });
     }
 
     fn commit_end(&mut self, title: String) {
+        let instructions = ic_cdk::api::instruction_counter() - self.commit_context().initial_instruction_counter;
+        // TODO: Handle insufficient funds here without failing the entire execution.
+        self.charge_cycles(instructions);
         let commit = Commit {
             timestamp: ic_cdk::api::time(),
             title: title,
             logs: self.commit_context().logs.clone(),
+            instructions,
+            fees: self.commit_context().fees,
         };
         self.env.commit(commit);
         self.commit_context = None;
@@ -206,12 +261,15 @@ impl ExecutionContext {
 }
 
 /// Context valid for a single commit of the exeuction.
-#[derive(Default)]
 pub struct CommitContext {
+    // Instruction counter at the beginning of the commit.
+    pub initial_instruction_counter: u64,
     // Logs written during the current commit.
     pub logs: Vec<LogEntry>,
     // Shared buffer that the guest can read using copy_shared_buffer.
     pub shared_buffer: Vec<u8>,
+    // Fees incurred during the commit so far.
+    pub fees: u64,
 }
 
 pub struct AsyncResult {

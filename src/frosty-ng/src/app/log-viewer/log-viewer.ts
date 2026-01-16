@@ -14,4 +14,8 @@ export class LogViewer {
   commits = input<Array<Commit>>([]);
 
   formatTimestamp = formatTimestamp;
+
+  toGwei(fee: bigint): number {
+    return Number(fee / BigInt(1_000_000_000));
+  }
 }

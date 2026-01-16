@@ -31,6 +31,15 @@ impl EvmChain {
             EvmChain::Localhost => true,
         }
     }
+
+    pub fn tmp_gas_price(&self) -> u64 {
+        // TODO: Replace with actual gas price fetching logic (somewhere else probably).
+        match self {
+            EvmChain::ArbitrumOne => 20_000_000,
+            EvmChain::ArbitrumSepolia => 20_000_000,
+            EvmChain::Localhost => 20_000_000,
+        }
+    }
 }
 
 /// A generic address type that can represent addresses from different blockchain types.
