@@ -27,7 +27,14 @@ export class FrostyFunctionEditor {
   deployment = signal<DeploymentResult | null>(null)
   deploying = signal<boolean>(false);
 
-  constructor(private frostyFunctionService: FrostyFunctionService) {}
+  constructor(private frostyFunctionService: FrostyFunctionService) {
+    this.preload();
+  }
+
+  async preload() {
+    // Preload AssemblyScript compiler for faster compilation later
+    await import("assemblyscript/asc");
+  }
 
   async simulate() {
     const compilationResult = await this.compile();
