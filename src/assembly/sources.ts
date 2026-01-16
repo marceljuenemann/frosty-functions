@@ -1,5 +1,6 @@
 // Requires a runtime that loads *.as files as raw text.
 import frosty from './frosty/index.as'
+import env from './frosty/env.as'
 import evm from './frosty/evm.as'
 import promise from './frosty/promise.as'
 import random from './frosty/random.as'
@@ -14,6 +15,7 @@ import runtime from './runtime.as'
  */
 export const FROSTY_SOURCES = new Map<string, string>([
   ['frosty', frosty],
+  ['frosty/env', env],
   ['frosty/evm', evm],
   ['frosty/index', frosty],
   ['frosty/promise', promise],

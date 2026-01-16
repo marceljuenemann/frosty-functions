@@ -1,8 +1,5 @@
-import { CALLDATA, JOB_ID } from "frosty";
-import { CALLING_CHAIN_NAME, CALLING_CHAIN_ID, EthWallet } from "frosty/evm";
-import { verifiableRandomness } from "frosty/random";
-import { Promise } from "frosty/promise";
-import { hex } from "frosty/util";
+import { EthWallet, Promise, hex, verifiableRandomness } from "frosty";
+import { CALLDATA, CALLING_CHAIN_NAME, CALLING_CHAIN_ID, JOB_ID } from "frosty/env";
 
 export function main(): void {
   console.log(`Invoked from ${CALLING_CHAIN_NAME} (Chain ID: ${CALLING_CHAIN_ID})`);
