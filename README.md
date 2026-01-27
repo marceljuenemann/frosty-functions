@@ -1,8 +1,5 @@
 # ❄️ Frosty Functions
 
-> [!NOTE]
-> This is very much a work-in-progress project. The main technical challenges are solved though, so getting close to an MVP!
-
 ## Overview
 
 Frosty Functions allow you to execute TypeScript¹ on the [Internet Computer](https://internetcomputer.org/what-is-the-ic) blockchain without having to deploy your own canister. They can be invoked from EVM smart contracts and control assets programmatically across multiple chains using [Threshold signatures](https://internetcomputer.org/docs/references/t-sigs-how-it-works).
@@ -34,6 +31,19 @@ Life of a Frosty Function:
 1. The cansiter verifies the event through a [HTTP Outcall](https://internetcomputer.org/https-outcalls/) to an RPC service. Currently, only Alchemy is used, but in the future the plan is to query multiple providers to reduce centralization risks.
 1. The function invocation is now added to a job queue. In the future, the actual execution will be delegated to an available execution canister (or a new one will be spawned if needed).
 1. The function may request control of a wallet for the caller using `Wallet.forCaller()`. This wallet is shared between all Frosty Functions, but unique depending on the caller that invoked the function. That allows a smart contract or user to use different functions to manage the same assets, but also means they need to trust the function they are invoking. In the future, different wallets will be available by specifying a derivation path (also wallets shared between all callers of the same function).
+
+## Security Considerations
+
+> [!WARNING]
+> The Frosty Functions contract is currently sill upgradable, meaning anybody that gets hold of Frosty's developer keys could deploy new code that signs arbitrary messages. It's therefore strongly recommended to only use Frosty Functions for development purposes until v1 is released.
+
+In addition to the above, Frosty Functions comes with the following trust assumptions:
+
+1. You trust the subnet of the Internet Computer that Frosty Functions runs on. This is currently <a href="https://dashboard.internetcomputer.org/network/subnets/fuqsr-in2lc-zbcjj-ydmcw-pzq7h-4xm2z-pto4i-dcyee-5z4rz-x63ji-nae">fuqsr-in2lc-zbcjj-ydmcw-pzq7h-4xm2z-pto4i-dcyee-5z4rz-x63ji-nae</a>. If 5 of the 13 node providers conspire, they could arbitrarily change the execution of Frosty.
+2. You trust the Internet Computer's <a href="https://dashboard.internetcomputer.org/network/subnets/pzp6e-ekpqk-3c5x7-2h6so-njoeq-mt45d-h3h6c-q3mxf-vpeq5-fk5o7-yae">Fiduciary subnet</a>, which consists of 34 nodes that execute the threshold signing.
+3. Events of the bridge contract are currently only fetched via Alchemy, so Alchemy could create fake events on behalf of contracts by changing their RPC response. #3 will expand this to requiring consensus between multiple RPC providers.
+4. You trust the code in this repository.
+
 
 ## Features
 
@@ -90,7 +100,11 @@ Latest version of the contract
 
 ## Canister deployments
 
+* Frontend: https://vayms-xiaaa-aaaao-qmb6q-cai.icp0.io/
 * Backend: https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=n6va3-cyaaa-aaaao-qk6pq-cai
+
+* Example function: https://vayms-xiaaa-aaaao-qmb6q-cai.icp0.io/functions/0x0dbfc27a4145ff75aa1c3bb153331e5a88d077dd175444b5bd52aa6d8b3c411b
+  * Example execution: https://vayms-xiaaa-aaaao-qmb6q-cai.icp0.io/chains/eip155:42161/jobs/1
 
 ## Local development
 
@@ -128,8 +142,10 @@ See instructions [here](https://internetcomputer.org/docs/building-apps/develope
 
 ## License
 
-This project is licensed under the AGPL to ensure that any improvements are shared back with the community. If you deploy a modified version, you must provide the source code to your users. See full [LICENSE](./LICENSE)
+Unless otherwise specified, all code in this repository is licensed under the AGPL to ensure that any improvements are shared back with the community. If you deploy a modified version of Frosty Functions, you must provide the source code to your users. See full [LICENSE](./LICENSE)
 
 Copyright ©2025 Marcel Juenemann
 
 Copyright ©2025 HTTP 403 Limited
+
+Frosty Functions is being developed and run by HTTP 403 Limited.
