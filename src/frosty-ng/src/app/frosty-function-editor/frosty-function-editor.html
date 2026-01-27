@@ -44,12 +44,9 @@
               <b>Simulation completed.</b>
               (Executed on <a href="https://dashboard.internetcomputer.org/canister/{{ sim.result.canisterId }}" target="_blank">{{ sim.result.canisterId }}</a>)
             </div>
-            <ul style="margin-bottom: 0;">
-              <li><b>Base fee:</b> {{ formatGwei($any(sim.result).job.base_fee) }}</li>
-              <li><b>Execution fees:</b> {{ formatGwei($any(sim.result).job.execution_fees) }}</li>
-              <li><b>Ethereum gas fees:</b> {{ formatGwei($any(sim.result).job.gas_fees) }} (estimated)</li>
-              <li><b>Total fees:</b> {{ formatGwei($any(sim.result).job.base_fee + $any(sim.result).job.execution_fees + $any(sim.result).job.gas_fees) }}</li>
-            </ul>
+            <div style="margin-bottom: 0;">
+              <div><b>Total fees:</b> {{ formatGwei($any(sim.result).job.base_fee + $any(sim.result).job.execution_fees + $any(sim.result).job.gas_fees) }}</div>
+            </div>
           </div>
 
           <!-- 4. Logs -->

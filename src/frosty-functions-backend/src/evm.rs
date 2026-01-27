@@ -84,6 +84,7 @@ fn job_from_event(chain: &EvmChain, event: Log) -> Result<JobRequest, String> {
 /// Transfers funds from the canister's main EVM account to the specified address.
 /// The nonce logic assumes that all transactions suceed, so callers should ensure
 /// that enough gas is available on the account.
+/*
 pub async fn transfer_funds( 
     chain: EvmChain,
     to_address: Address,
@@ -113,6 +114,7 @@ pub async fn transfer_funds(
         .map_err(|e| format!("Failed to send transaction: {}", e))?;
     Ok(transaction_result.tx_hash().clone())
 }
+*/
 
 fn rpc_service(evm_chain: &EvmChain) -> RpcService {
     // TODO: Fetch from multiple providers to ensure consistency.

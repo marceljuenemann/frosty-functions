@@ -25,7 +25,7 @@ export interface SimulationResultExt extends SimulationResult {
 
 export type DeploymentResult = {hash?: string, duplicate?: boolean, error?: string};
 
-const CANISTER_ID = "uxrrr-q7777-77774-qaaaq-cai";  // Localhost
+const CANISTER_ID = "umunu-kh777-77774-qaaca-cai";  // Localhost
 // const CANISTER_ID = "n6va3-cyaaa-aaaao-qk6pq-cai";  // Production
 
 @Injectable({

@@ -51,20 +51,6 @@ export class EthWallet {
     return promise.map<Uint8Array>(buffer => Uint8Array.wrap(buffer));
   }
 
-  /**
-   * Deposit Ethereum from the gas balance of the current Frosty Function execution.
-   * 
-   * Callers need to ensure that the Frosty Function is left with sufficient gas to
-   * not run out of gas during execution.
-   * 
-   * @returns A promise that resolves to the transaction hash as a Uint8Array.
-   */
-  depositGas(amount: u64): Promise<Uint8Array> {
-    let promise = new SharedPromise();
-    __evm_caller_wallet_deposit(amount, promise.id);
-    return promise.map<Uint8Array>(buffer => Uint8Array.wrap(buffer));
-  }
-
   static forCaller(): EthWallet {
     return new EthWallet()
   }
@@ -72,9 +58,6 @@ export class EthWallet {
 
 @external("❄️", "evm_caller_wallet_address")
 declare function __evm_caller_wallet_address(bufferPtr: i32): void;
-
-@external("❄️", "evm_caller_wallet_deposit")
-declare function __evm_caller_wallet_deposit(amount: u64, promiseId: i32): void;
 
 @external("❄️", "evm_caller_wallet_sign_message")
 declare function __evm_caller_wallet_sign_message(messagePtr: i32, promiseId: i32): void;

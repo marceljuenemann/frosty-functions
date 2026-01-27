@@ -38,15 +38,6 @@ export function main(): void {
   wallet.signMessage(String.UTF8.encode("Hello, World!")).then((signature) => {
     console.log(`Signature: ${hex.encode(signature)}`);
   });
-
-  // You can transfer gas that you sent to the Frosty function into the wallet.
-  // However, make sure to leave enough gas for the function execution to complete.
-  // Note that this actually results in an Ethereum transaction with the usual gas
-  // costs, which will be deducted from your gas account. Alternatively, you can also
-  // send funds directly to wallet.address() outside of Frosty.
-  wallet.depositGas(10000).then((txHash) => {
-    console.log(`Transferred gas into Wallet.forCaller(). Tx hash: ${hex.encode(txHash)}`);
-  });
 }
 
 

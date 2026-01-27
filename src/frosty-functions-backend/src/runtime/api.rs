@@ -5,8 +5,8 @@ use std::rc::Rc;
 use alloy::primitives::{Address, keccak256};
 use alloy::signers::Signer;
 use wasmi::{Caller, Error, Func, Global, Linker, Memory, Mutability, Store, Val, errors::LinkerError};
-use crate::runtime::{LogEntry, LogType, RuntimeEnvironment};
-use crate::{Chain, evm::transfer_funds};
+use crate::runtime::{LogEntry, LogType};
+use crate::{Chain};
 use crate::runtime::runtime::{ExecutionContext};
 
 /// The maximum length of data that can be passed to/from the guest.
@@ -80,7 +80,6 @@ pub fn register_host_functions(linker: &mut Linker<Ctx>, store: &mut Store<Ctx>)
     register!(on_chain_id, linker, store);
 
     register!(evm_caller_wallet_address, linker, store);
-    register!(evm_caller_wallet_deposit, linker, store);
     register!(evm_caller_wallet_sign_message, linker, store);
     register!(evm_chain_id, linker, store);
 
@@ -136,48 +135,6 @@ fn evm_caller_wallet_address(mut caller: Caller<Ctx>, buffer_ptr: i32) -> Result
         env!(caller).caller_wallet().unwrap().address()
     };
     write_utf16_string(caller, &address.to_string(), buffer_ptr)
-}
-
-/// Transfers the specified amount of gas tokens to the caller wallet.
-/// This operates on the calling chain, so it only works if the Frosty Function was invoked from an EVM chain.
-/// 
-/// TODO: Offer a general transfer_gas function to any address. We'd just need to handle
-/// replacing failing transactions to not cause all future transaction to get stuck.
-fn evm_caller_wallet_deposit(mut caller: Caller<Ctx>, amount: u64, promise_id: i32) -> Result<(), Error> {
-    let mut ctx = ctx!(caller);
-    let evm_chain: crate::chain::EvmChain = match ctx.env().job_request().chain.clone() {
-        Chain::Evm(id) => id,
-        _ => return Err(Error::new("CallerWallet.deposit can only be used on EVM chains".to_string())),
-    };
-
-    // TODO: Get a more accurate gas estimate.
-    let gas_estimate = 21_000 * evm_chain.tmp_gas_price();
-    ctx.charge_cycles(CYCLES_EVM_RPC_CALL * 3 + CYCLES_SIGN_MESSAGE)?;
-    ctx.env_mut().charge_gas(gas_estimate + amount)
-        .map_err(|e| Error::new(e))?;
-
-    // TODO: Refactor all this ugly code.
-    let wallet = ctx.env().caller_wallet();
-    let is_simulation = ctx.env().is_simulation();
-    ctx.queue_task(
-        promise_id,
-        format!("CallerWallet.deposit({})", amount),
-        // TODO: Move the messy parts into a spawn function.
-        Box::pin(async move {
-            if is_simulation {
-                let dummy_tx = [1u8; 32];
-                Ok(dummy_tx.to_vec())
-            } else {
-                let tx = transfer_funds(evm_chain, wallet.unwrap().address(), amount).await?;
-                ic_cdk::println!("[#{}] Sent transaction with hash: 0x{}", promise_id, tx);
-                // TODO: Do add the transaction to the execution logs. We aren't even in a commit
-                // context at this point though. Maybe add a synchronous callback that is invoked
-                // after the async future is completed, but before the callback is invoked?
-                Ok(tx.as_slice().into())
-            }
-        })
-    );
-    Ok(())
 }
 
 /// Signs a EIP-191 message.
