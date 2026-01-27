@@ -35,13 +35,13 @@ Life of a Frosty Function:
 ## Security Considerations
 
 > [!WARNING]
-> The Frosty Functions contract is currently sill upgradable, meaning anybody with the dev keys could deploy new code that signs arbitrary messages. You should therefore only use Frosty Functions for development purposes.
+> The Frosty Functions contract is currently sill upgradable, meaning anybody that gets hold of Frosty's developer keys could deploy new code that signs arbitrary messages. It's therefore strongly recommended to only use Frosty Functions for development purposes until v1 is released.
 
 In addition to the above, Frosty Functions comes with the following trust assumptions:
 
 1. You trust the subnet of the Internet Computer that Frosty Functions runs on. This is currently <a href="https://dashboard.internetcomputer.org/network/subnets/fuqsr-in2lc-zbcjj-ydmcw-pzq7h-4xm2z-pto4i-dcyee-5z4rz-x63ji-nae">fuqsr-in2lc-zbcjj-ydmcw-pzq7h-4xm2z-pto4i-dcyee-5z4rz-x63ji-nae</a>. If 5 of the 13 node providers conspire, they could arbitrarily change the execution of Frosty.
 2. You trust the Internet Computer's <a href="https://dashboard.internetcomputer.org/network/subnets/pzp6e-ekpqk-3c5x7-2h6so-njoeq-mt45d-h3h6c-q3mxf-vpeq5-fk5o7-yae">Fiduciary subnet</a>, which consists of 34 nodes that execute the threshold signing.
-3. Events of the bridge contract are currently only fetched via Alchemy, so Alchemy could create fake events on behalf of contracts by changing their RPC response. #1 will expand this to requiring consensus between multiple RPC providers.
+3. Events of the bridge contract are currently only fetched via Alchemy, so Alchemy could create fake events on behalf of contracts by changing their RPC response. #3 will expand this to requiring consensus between multiple RPC providers.
 4. You trust the code in this repository.
 
 
