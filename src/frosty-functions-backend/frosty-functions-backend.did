@@ -75,7 +75,6 @@ service : {
   // if new jobs were found in the block. We should also provide an (off chain?) indexer to
   // watch for new blocks and call this method automatically.
   index_block : (Chain, nat64) -> (Result);
-  init : () -> ();
   signer_for_caller : (Caller, opt blob) -> (Result_1) query;
   signer_for_function : (blob, opt blob) -> (Result_1) query;
   simulate_execution : (JobRequest, blob) -> (Result_2) query;
