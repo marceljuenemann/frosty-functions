@@ -1,4 +1,5 @@
 mod chain;
+mod crosschain;
 mod evm;
 mod execution;
 mod repository;
@@ -10,11 +11,13 @@ mod storage;
 
 use std::cell::RefCell;
 
-use alloy::{signers::Signer};
+use candid::CandidType;
 use chain::{Chain};
 use evm_rpc_types::Nat256;
+use serde::{Deserialize, Serialize};
 
-use crate::{execution::schedule_job, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, runtime::{Commit, Job, JobRequest}, simulation::SimulationResult, state::{init_state, read_state}};
+use crate::{chain::Caller, crosschain::eth_address_for_public_key, execution::schedule_job, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, runtime::{Commit, Job, JobRequest}, signer::main_signer, simulation::SimulationResult, state::{init_state, read_state}};
+use crate::crosschain::Signer;
 
 // TODO: Remove again
 thread_local! {
@@ -34,7 +37,7 @@ fn get_commit(commit_id: u64) -> Option<Commit> {
 
 #[ic_cdk::query]
 fn get_evm_address() -> String {
-    read_state(|state| state.main_signer.address().to_string())
+    read_state(|state| alloy::signers::Signer::address(&state.main_signer).to_string())
 }
 
 /// Retrieve function definition and state by its ID.
@@ -96,5 +99,31 @@ fn simulate_execution(request: JobRequest, wasm: Vec<u8>) -> Result<SimulationRe
     crate::simulation::simulate_job(request, &wasm)
 }
 
-// Enable Candid export
+#[ic_cdk::query]
+fn signer_for_caller(caller: Caller, derivation: Option<Vec<u8>>) -> Result<SignerInfo, String> {
+    Signer::for_caller(caller, derivation).into()
+}
+
+#[ic_cdk::query]
+fn signer_for_function(function_id: FunctionId, derivation: Option<Vec<u8>>) -> Result<SignerInfo, String> {
+    Signer::for_function(function_id, derivation).into()
+}   
+
+#[derive(Clone, CandidType, Deserialize, Serialize)]
+struct SignerInfo {
+    public_key: String,
+    eth_address: String,
+}
+
+impl From<Signer> for Result<SignerInfo, String> {
+    fn from(signer: Signer) -> Self {
+        let public_key = signer.public_key()?;
+        let address = eth_address_for_public_key(&public_key).map_err(|e| e.to_string())?;
+        Ok(SignerInfo {
+            public_key: hex::encode(&public_key),
+            eth_address: address.to_string(),
+        })
+    }
+}
+
 ic_cdk::export_candid!();

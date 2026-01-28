@@ -165,7 +165,7 @@ fn evm_caller_wallet_sign_message(mut caller: Caller<Ctx>, message_ptr: i32, pro
 
 fn evm_chain_id(mut caller: Caller<Ctx>) -> u64 {
     match job!(caller).chain.clone() {
-        Chain::Evm(id) => crate::evm::evm_chain_id(id),
+        Chain::Evm(id) => id.chain_id(),
         _ => 0,
     }
 }

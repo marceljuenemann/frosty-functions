@@ -21,6 +21,8 @@ use crate::runtime::JobRequest;
 use crate::state::read_state;
 use crate::storage::create_job;
 
+// TODO: Move this all to crosschain module.
+
 sol! {
     #[sol(rpc)]
     "../../contracts/Bridge.sol"
@@ -128,14 +130,6 @@ fn rpc_service(evm_chain: &EvmChain) -> RpcService {
             headers: None,
         }),
         EvmChain::ArbitrumOne => RpcService::ArbitrumOne(L2MainnetService::Alchemy)
-    }
-}
-
-pub fn evm_chain_id(chain: EvmChain) -> u64 {
-    match chain {
-        EvmChain::ArbitrumOne => 42161,
-        EvmChain::ArbitrumSepolia => 421614,
-        EvmChain::Localhost => 31337,
     }
 }
 

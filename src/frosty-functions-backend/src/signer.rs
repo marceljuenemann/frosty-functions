@@ -1,5 +1,7 @@
 use alloy::{signers::icp::IcpSigner};
 
+// TODO: Delete this file, replaced by crosschain/signer.rs
+
 /// Subset of IcpSigner used as an identifier.
 pub struct IcpSignerId {
     pub derivation_path: Vec<Vec<u8>>,
