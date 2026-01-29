@@ -1,14 +1,9 @@
 use alloy::eips::BlockNumberOrTag;
-use alloy::network::TransactionBuilder;
-use alloy::network::EthereumWallet;
 use alloy::primitives::Address;
-use alloy::primitives::TxHash;
-use alloy::primitives::U256;
 use alloy::providers::Provider;
 use alloy::providers::ProviderBuilder;
 use alloy::rpc::types::Filter;
 use alloy::rpc::types::Log;
-use alloy::rpc::types::TransactionRequest;
 use alloy::sol;
 use alloy::sol_types::SolEvent;
 use alloy::transports::icp::{L2MainnetService, RpcApi, RpcService};
@@ -18,7 +13,6 @@ use crate::chain::Chain;
 use crate::chain::EvmChain;
 use crate::evm::FrostyBridge::FunctionInvoked;
 use crate::runtime::JobRequest;
-use crate::state::read_state;
 use crate::storage::create_job;
 
 sol! {
@@ -81,39 +75,6 @@ fn job_from_event(chain: &EvmChain, event: Log) -> Result<JobRequest, String> {
     Ok(job)
 }
 
-/// Transfers funds from the canister's main EVM account to the specified address.
-/// The nonce logic assumes that all transactions suceed, so callers should ensure
-/// that enough gas is available on the account.
-pub async fn transfer_funds( 
-    chain: EvmChain,
-    to_address: Address,
-    amount: u64,
-) -> Result<TxHash, String> {
-    // TODO: Configure response size to save on cycles.
-    let wallet = EthereumWallet::from(read_state(|s| s.main_signer.clone()));
-    let config = alloy::transports::icp::IcpConfig::new(rpc_service(&chain));
-    let provider = ProviderBuilder::new()
-        // TODO: Always set 21000 as gas limit
-        // TODO: Fetch base fee and cache it for some time.
-        // TODO: Use our own NonceManager that persists nonces.
-        // .with_gas_estimation()
-        // .filler(NonceFiller::new(nonce_manager))
-        .with_recommended_fillers()
-        .wallet(wallet)
-        .on_icp(config);
-
-    let nonce = 1;  // TODO: increment.
-    let tx = TransactionRequest::default()
-        .with_to(to_address)
-        .with_value(U256::from(amount))
-        // .with_nonce(nonce)
-        .with_chain_id(evm_chain_id(chain));
-
-    let transaction_result = provider.send_transaction(tx.clone()).await
-        .map_err(|e| format!("Failed to send transaction: {}", e))?;
-    Ok(transaction_result.tx_hash().clone())
-}
-
 fn rpc_service(evm_chain: &EvmChain) -> RpcService {
     // TODO: Fetch from multiple providers to ensure consistency.
     match evm_chain {
@@ -126,14 +87,6 @@ fn rpc_service(evm_chain: &EvmChain) -> RpcService {
             headers: None,
         }),
         EvmChain::ArbitrumOne => RpcService::ArbitrumOne(L2MainnetService::Alchemy)
-    }
-}
-
-pub fn evm_chain_id(chain: EvmChain) -> u64 {
-    match chain {
-        EvmChain::ArbitrumOne => 42161,
-        EvmChain::ArbitrumSepolia => 421614,
-        EvmChain::Localhost => 31337,
     }
 }
 

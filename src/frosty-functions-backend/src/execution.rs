@@ -8,7 +8,6 @@ use ic_cdk_timers::set_timer;
 
 use crate::runtime::{Commit, JobRequest, JobStatus, RuntimeEnvironment};
 use crate::runtime::{Execution};
-use crate::signer::signer_for_address;
 use crate::storage::{get_function, update_job_status};
 
 pub fn schedule_job(job_request: &JobRequest) {
@@ -35,8 +34,7 @@ pub fn schedule_job(job_request: &JobRequest) {
 // TODO: Better error handling.
 async fn execute_job(request: &JobRequest, wasm: &[u8]) -> Result<(), String> {
     let env = ExecutionEnvironment {
-        job_request: request.clone(),
-        caller_wallet: signer_for_address(&request.caller).await?,
+        job_request: request.clone()
     };
 
     // TODO: Enable long running tasks in main().
@@ -63,8 +61,7 @@ async fn execute_job(request: &JobRequest, wasm: &[u8]) -> Result<(), String> {
 }
 
 struct ExecutionEnvironment {
-    job_request: JobRequest,
-    caller_wallet: IcpSigner,
+    job_request: JobRequest
 }
 
 impl RuntimeEnvironment for ExecutionEnvironment {
@@ -101,9 +98,5 @@ impl RuntimeEnvironment for ExecutionEnvironment {
     fn commit(&mut self, commit: Commit) {
         crate::storage::store_commit(&self.job_request, &commit)
             .expect("Failed to store commit");
-    }
-
-    fn caller_wallet(&self) -> Option<IcpSigner> { 
-        Some(self.caller_wallet.clone())
     }
 }

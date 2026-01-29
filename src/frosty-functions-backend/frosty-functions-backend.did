@@ -1,4 +1,5 @@
 type Address = variant { EvmAddress : text };
+type Caller = record { chain : Chain; address : Address };
 type Chain = variant { Evm : EvmChain };
 type Commit = record {
   title : text;
@@ -50,8 +51,10 @@ type JobStatus = variant {
 type LogEntry = record { level : LogType; message : text };
 type LogType = variant { System; Default };
 type Result = variant { Ok : vec JobRequest; Err : text };
-type Result_1 = variant { Ok : SimulationResult; Err : text };
-type Result_2 = variant { Ok; Err : text };
+type Result_1 = variant { Ok : SignerInfo; Err : text };
+type Result_2 = variant { Ok : SimulationResult; Err : text };
+type Result_3 = variant { Ok; Err : text };
+type SignerInfo = record { public_key : text; eth_address : text };
 type SimulationResult = record {
   job : Job;
   error : opt text;
@@ -72,7 +75,8 @@ service : {
   // if new jobs were found in the block. We should also provide an (off chain?) indexer to
   // watch for new blocks and call this method automatically.
   index_block : (Chain, nat64) -> (Result);
-  init : () -> ();
-  simulate_execution : (JobRequest, blob) -> (Result_1) query;
-  tmp_set_api_keys : (text, opt vec text) -> (Result_2);
+  signer_for_caller : (Caller, opt blob) -> (Result_1) query;
+  signer_for_function : (blob, opt blob) -> (Result_1) query;
+  simulate_execution : (JobRequest, blob) -> (Result_2) query;
+  tmp_set_api_keys : (text, opt vec text) -> (Result_3);
 }
