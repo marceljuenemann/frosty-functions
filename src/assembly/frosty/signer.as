@@ -1,5 +1,6 @@
 import { Promise } from "./promise";
-import { SharedPromise } from "./internal/async";
+import { SharedPromise } from "./internal/async"
+import { hex } from "./hex";
 
 const SIGNER_FOR_CALLER = 0;
 const SIGNER_FOR_FUNCTION = 1;
@@ -8,7 +9,7 @@ const SIGNER_FOR_FUNCTION = 1;
  * A signer backed by distributed threshold keys.
  */
 export class Signer {
-  private derivationPathPtr: i32 = 0;
+  private derivationPath: ArrayBuffer | null = null;
 
   private constructor(
     private signerType: i32,
@@ -16,7 +17,7 @@ export class Signer {
   ) {
     if (derivationPath != null) {
       // Defensive copy into a new ArrayBuffer.
-      this.derivationPathPtr = changetype<i32>(derivationPath.slice().buffer);
+      this.derivationPath = derivationPath.slice().buffer;
     }
   }
 
@@ -25,7 +26,7 @@ export class Signer {
    */
   get publicKey(): Uint8Array {
     let buffer = new ArrayBuffer(33);
-    signer_public_key(this.signerType, this.derivationPathPtr, changetype<i32>(buffer));
+    signer_public_key(this.signerType, changetype<i32>(this.derivationPath), changetype<i32>(buffer));
     return Uint8Array.wrap(buffer);
   }
 
@@ -34,7 +35,7 @@ export class Signer {
    */
   get ethAddress(): Uint8Array {
     let buffer = new ArrayBuffer(20);
-    signer_eth_address(this.signerType, this.derivationPathPtr, changetype<i32>(buffer));
+    signer_eth_address(this.signerType, changetype<i32>(this.derivationPath), changetype<i32>(buffer));
     return Uint8Array.wrap(buffer);
   }
 
@@ -51,7 +52,7 @@ export class Signer {
     }
     let messageHashPtr = changetype<i32>(messageHash.slice().buffer);
     let promise = new SharedPromise();
-    sign_with_ecdsa(this.signerType, this.derivationPathPtr, messageHashPtr, promise.id);
+    sign_with_ecdsa(this.signerType, changetype<i32>(this.derivationPath), messageHashPtr, promise.id);
     return promise.map<Signature>(signature => new Signature(
       Uint8Array.wrap(signature, 0, 32),
       Uint8Array.wrap(signature, 32, 32),
