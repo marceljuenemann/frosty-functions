@@ -6,7 +6,7 @@ use alloy::primitives::{Address, keccak256};
 use ic_stable_structures::Storable;
 use wasmi::{Caller, Error, Func, Global, Linker, Memory, Mutability, Store, Val, errors::LinkerError};
 use crate::runtime::{LogEntry, LogType, RuntimeEnvironment, job};
-use crate::signer::{Signer, ThresholdSigner};
+use crate::signer::{Signer, SimulationSigner, ThresholdSigner, derivation_path_for_caller, derivation_path_for_function};
 use crate::{Chain};
 use crate::runtime::runtime::{ExecutionContext};
 
@@ -81,7 +81,8 @@ pub fn register_host_functions(linker: &mut Linker<Ctx>, store: &mut Store<Ctx>)
 
     register!(signer_public_key, linker, store);
     register!(signer_eth_address, linker, store);
-    //register!(evm_caller_wallet_sign_message, linker, store);
+    register!(sign_with_ecdsa, linker, store);
+    register!(crypto_keccak256, linker, store);
     register!(evm_chain_id, linker, store);
 
     register!(ic_raw_rand, linker, store);
@@ -139,68 +140,61 @@ fn signer_eth_address(mut caller: Caller<Ctx>, signer_type: i32, signer_derivati
     Ok(())
 }
 
+fn sign_with_ecdsa(mut caller: Caller<Ctx>, signer_type: i32, signer_derivation: i32, message_ptr: i32, promise_id: i32) -> Result<(), Error> {
+    ctx!(caller).charge_cycles(CYCLES_SIGN_MESSAGE)?;
+    let msg_hash = read_buffer(&caller, message_ptr, 33)?;
+    if msg_hash.len() != 32 {
+        return Err(Error::new(format!("Invalid message hash length: {}", msg_hash.len())));
+    }
+    let signer = get_signer(&caller, signer_type, signer_derivation)?;
+    ctx!(caller).queue_task(
+        promise_id,
+        format!("sign_with_ecdsa(0x{})", &hex::encode(&msg_hash)),
+        Box::pin(async move {
+            let sig = signer.sign_with_ecdsa(msg_hash).await
+                .map_err(|e| format!("Failed to sign message: {}", e))?;
+            Ok(sig.into())
+        })
+    );
+    Ok(())
+}
+
 fn get_signer(caller: &Caller<Ctx>, signer_type: i32, signer_derivation: i32) -> Result<Box<dyn Signer>, Error> {
-    let derivation = if signer_derivation != 0 {
+    let job = caller.data().borrow().env().job_request().clone();
+    let extra_derivation = if signer_derivation != 0 {
         Some(read_buffer(&caller, signer_derivation, 1024)?)
     } else {
         None
     };
-    let job = caller.data().borrow().env().job_request().clone();
-    let signer = match signer_type {
-        SIGNER_FOR_CALLER => {
-            ThresholdSigner::for_caller(crate::chain::Caller {
+    let derivation_path= match signer_type {
+        SIGNER_FOR_CALLER => derivation_path_for_caller(
+            crate::chain::Caller {
                 chain: job.chain,
                 address: job.caller,
-            }, derivation)
-        },
-        SIGNER_FOR_FUNCTION => {
-            ThresholdSigner::for_function(job.function_hash, derivation)
-        },
+            },
+            extra_derivation
+        ),
+        SIGNER_FOR_FUNCTION => derivation_path_for_function(
+            job.function_hash,
+            extra_derivation
+        ),
         _ => return Err(Error::new(format!("Invalid signer type: {}", signer_type))),
     };
-    Ok(Box::new(signer))
-}
-
-/*
-/// Writes the caller's wallet address as a UTF-16LE string into the provided buffer.
-/// The buffer is expected to be large enough to hold the address string.
-fn evm_caller_wallet_address(mut caller: Caller<Ctx>, buffer_ptr: i32) -> Result<(), Error> {
-    // TODO: Make async.
-    // TODO: Charge cycles for the inter-canister call.
-    let address: Address = if env!(caller).is_simulation() {
-        SIMULATION_ADDRESS.parse().unwrap()
+    if caller.data().borrow().env().is_simulation() {
+        Ok(Box::new(SimulationSigner::new(derivation_path)))
     } else {
-        env!(caller).caller_wallet().unwrap().address()
-    };
-    write_utf16_string(caller, &address.to_string(), buffer_ptr)
+        Ok(Box::new(ThresholdSigner::new(derivation_path)))
+    }
 }
 
-/// Signs a EIP-191 message.
-// TOOD: Also expose lower level sign_hash to sign arbitrary hashes.  
-fn evm_caller_wallet_sign_message(mut caller: Caller<Ctx>, message_ptr: i32, promise_id: i32) -> Result<(), Error> {
-    ctx!(caller).charge_cycles(CYCLES_SIGN_MESSAGE)?;
-    let message = read_buffer(&caller, message_ptr, 100_000)?;
-    let mut ctx = ctx!(caller);
-    let wallet = ctx.env().caller_wallet();
-    // TODO: Refactor this. Probably create an AsyncContext that is passed to the closure.
-    let is_simulation = ctx.env().is_simulation();
-    ctx.queue_task(
-        promise_id,
-        format!("CallerWallet.signMessage(0x{})", clip_string(&hex::encode(&message), 100)),
-        Box::pin(async move {
-            if is_simulation {
-                let dummy_signature = [42u8; 65];
-                return Ok(dummy_signature.into());
-            } else {
-                let sig = wallet.unwrap().sign_message(message.as_ref()).await
-                    .map_err(|e| format!("Failed to sign message: {}", e))?;
-                Ok(sig.as_bytes().into())
-            }
-        }) 
-    );
+fn crypto_keccak256(mut caller: Caller<Ctx>, message_ptr: i32, buffer_ptr: i32) -> Result<(), Error> {
+    let data = read_buffer(&caller, message_ptr, BUFFER_MAX_LEN)?;
+    let hash = keccak256(&data);
+    ic_cdk::println!("Keccak256 input: 0x{}", hex::encode(&data));
+    ic_cdk::println!("Keccak256 hash: 0x{}", hex::encode(&hash));
+    get_memory(&caller).write(&mut caller, buffer_ptr as usize, &hash.to_bytes())?;
     Ok(())
 }
-*/
 
 fn evm_chain_id(mut caller: Caller<Ctx>) -> u64 {
     match job!(caller).chain.clone() {

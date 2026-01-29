@@ -1,5 +1,6 @@
 // Requires a runtime that loads *.as files as raw text.
 import frosty from './frosty/index.as'
+import crypto from './frosty/crypto.as'
 import env from './frosty/env.as'
 import evm from './frosty/evm.as'
 import hex from './frosty/hex.as'
@@ -16,6 +17,7 @@ import runtime from './runtime.as'
  */
 export const FROSTY_SOURCES = new Map<string, string>([
   ['frosty', frosty],
+  ['frosty/crypto', crypto],
   ['frosty/env', env],
   ['frosty/evm', evm],
   ['frosty/hex', hex],

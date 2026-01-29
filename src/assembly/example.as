@@ -1,4 +1,4 @@
-import { Signer, Promise, Hex, verifiableRandomness } from "frosty";
+import { Signer, Promise, Hex, keccak256, verifiableRandomness } from "frosty";
 import { CALLDATA, CALLING_CHAIN_NAME, CALLING_CHAIN_ID, JOB_ID } from "frosty/env";
 
 export function main(): void {
@@ -17,6 +17,13 @@ export function main(): void {
 
   const signer3 = Signer.forFunction(CALLDATA.bytes);
   console.log(`Signer.forFunction(CALLDATA) public key: ${signer3.publicKey}`);
+
+  let hash = keccak256(CALLDATA.bytes);
+  console.log(`keccak256(CALLDATA): ${Hex.wrap(hash)}`);
+  signer.signWithEcsda(hash).then(signature => {
+    console.log(`Signature: ${Hex.wrap(signature)}`);
+  })
+
 
   /**
    * Frosty Functions have full control over Ethereum wallets, so they can hold assets

@@ -30,3 +30,4 @@ serde_json = "1"
 wasmi = { version = "0.51.2", default-features = false }
 ic-cdk-timers = "1.0.0"
 ic-pub-key = { version = "0.2.0", default-features = false, features = ["secp256k1", "ed25519"] }
+async-trait = "0.1.89"

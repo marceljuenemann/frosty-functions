@@ -17,7 +17,7 @@ export class Signer {
   ) {
     if (derivationPath != null) {
       // Defensive copy into a new ArrayBuffer.
-      this.derivationPathPtr = changetype<i32>(derivationPath.slice());
+      this.derivationPathPtr = changetype<i32>(derivationPath.slice().buffer);
     }
   }
 
@@ -46,13 +46,15 @@ export class Signer {
    * 
    * Use String.UTF8.encode or String.UTF16.encode to convert a string to an ArrayBuffer.
    */
-  /*
-  signMessage(message: ArrayBuffer): Promise<Uint8Array> {
+  signWithEcsda(messageHash: Uint8Array): Promise<Uint8Array> {
+    if (messageHash.length != 32) {
+      throw new Error(`Message hash must be 32 bytes. Got ${messageHash.length}`);
+    }
+    let messageHashPtr = changetype<i32>(messageHash.slice().buffer);
     let promise = new SharedPromise();
-    __evm_caller_wallet_sign_message(changetype<i32>(message), promise.id);
+    sign_with_ecdsa(this.signerType, this.derivationPathPtr, messageHashPtr, promise.id);
     return promise.map<Uint8Array>(buffer => Uint8Array.wrap(buffer));
   }
-    */
 
   /**
    * Creates a signer for the caller of the function. This signer is shared
@@ -82,3 +84,6 @@ declare function signer_public_key(signerType: i32, derivationPtr: i32, bufferPt
 
 @external("❄️", "signer_eth_address")
 declare function signer_eth_address(signerType: i32, derivationPtr: i32, bufferPtr: i32): void;
+
+@external("❄️", "sign_with_ecdsa")
+declare function sign_with_ecdsa(signerType: i32, derivationPtr: i32, messagePtr: i32, promiseId: i32): void;

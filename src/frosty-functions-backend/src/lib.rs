@@ -14,7 +14,7 @@ use chain::{Chain};
 use evm_rpc_types::Nat256;
 use serde::{Deserialize, Serialize};
 
-use crate::{chain::Caller, execution::schedule_job, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, runtime::{Commit, Job, JobRequest}, simulation::SimulationResult};
+use crate::{chain::Caller, execution::schedule_job, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, runtime::{Commit, Job, JobRequest}, signer::{derivation_path_for_caller, derivation_path_for_function}, simulation::SimulationResult};
 use crate::signer::{Signer, ThresholdSigner};
 
 // TODO: Remove again
@@ -94,13 +94,13 @@ fn simulate_execution(request: JobRequest, wasm: Vec<u8>) -> Result<SimulationRe
 
 #[ic_cdk::query]
 fn signer_for_caller(caller: Caller, derivation: Option<Vec<u8>>) -> Result<SignerInfo, String> {
-    ThresholdSigner::for_caller(caller, derivation).into()
+    ThresholdSigner::new(derivation_path_for_caller(caller, derivation)).into()
 }
 
 #[ic_cdk::query]
 fn signer_for_function(function_id: FunctionId, derivation: Option<Vec<u8>>) -> Result<SignerInfo, String> {
-    ThresholdSigner::for_function(function_id, derivation).into()
-}   
+    ThresholdSigner::new(derivation_path_for_function(function_id, derivation)).into()
+}
 
 #[derive(Clone, CandidType, Deserialize, Serialize)]
 struct SignerInfo {

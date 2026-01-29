@@ -1478,6 +1478,7 @@ version = "0.1.0"
 dependencies = [
  "alloy",
  "anyhow",
+ "async-trait",
  "candid",
  "evm_rpc_types",
  "futures",

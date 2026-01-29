@@ -1,6 +1,7 @@
 /**
  * Wrapper around a byte array that provides a toString() method in hex encoding.
  */
+// TODO: Probably a bad idea. Go back to hex.encode()
 export class Hex {
 
   private constructor(public readonly bytes: Uint8Array) {}
