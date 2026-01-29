@@ -27,7 +27,6 @@ fn get_commit(commit_id: u64) -> Option<Commit> {
     crate::storage::get_commit(commit_id)
 }
 
-// TODO: verify 0xc271B5B2be662fa85b45d0d1C465910D10c2E645
 #[ic_cdk::query]
 fn get_evm_address() -> String {
     let signer = ThresholdSigner::new(vec![]);

@@ -1,4 +1,4 @@
-export { EthWallet } from "frosty/evm";
+export { Hex } from "frosty/hex";
 export { Promise } from "frosty/promise";
 export { verifiableRandomness } from "frosty/random";
-export { hex } from "frosty/util";
+export { Signer } from "frosty/signer";
