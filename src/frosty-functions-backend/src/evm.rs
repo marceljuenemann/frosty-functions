@@ -15,8 +15,6 @@ use crate::evm::FrostyBridge::FunctionInvoked;
 use crate::runtime::JobRequest;
 use crate::storage::create_job;
 
-// TODO: Move this all to crosschain module.
-
 sol! {
     #[sol(rpc)]
     "../../contracts/Bridge.sol"

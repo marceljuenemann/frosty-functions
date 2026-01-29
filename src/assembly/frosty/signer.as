@@ -40,11 +40,8 @@ export class Signer {
   }
 
   /**
-   * Signs the given message according to EIP-191
-   * 
-   * sign_hash(keccak256(0x19 <0x45 (E)> <thereum Signed Message:\n" + len(message)> <data to sign>))
-   * 
-   * Use String.UTF8.encode or String.UTF16.encode to convert a string to an ArrayBuffer.
+   * Signs the given hash with ECDSA. The hash needs to be exactly 32 bytes.
+   * The result is the concatenation of the SEC1 encodings of the two values r and s.
    */
   signWithEcsda(messageHash: Uint8Array): Promise<Signature> {
     if (messageHash.length != 32) {
