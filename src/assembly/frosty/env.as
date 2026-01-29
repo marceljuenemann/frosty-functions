@@ -1,17 +1,16 @@
 import { chainName } from "frosty/evm";
-import { Hex } from "frosty/hex";
 
 /**
  * The data payload passed when the Frosty Function was invoked.
  */
 @lazy
-export const CALLDATA = ((): Hex => {
+export const CALLDATA = ((): Uint8Array => {
   // Note that the compiler won't strip this out, even if CALLDATA
   // is never used. So we should prefer functions over constants for
   // constants less likely to be used.
   let buffer = new ArrayBuffer(CALLDATA_SIZE);
   __calldata(changetype<i32>(buffer));
-  return Hex.wrapArrayBuffer(buffer);
+  return Uint8Array.wrap(buffer);
 })();
 
 @external("❄️", "CALLDATA_SIZE")

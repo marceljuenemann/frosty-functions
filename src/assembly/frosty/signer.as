@@ -1,6 +1,5 @@
-import { Promise, Done, DONE } from "./promise";
+import { Promise } from "./promise";
 import { SharedPromise } from "./internal/async";
-import { Hex } from "./hex";
 
 const SIGNER_FOR_CALLER = 0;
 const SIGNER_FOR_FUNCTION = 1;
@@ -24,19 +23,19 @@ export class Signer {
   /**
    * The ECDSA public key encoded in SEC1 compressed form.
    */
-  get publicKey(): Hex {
+  get publicKey(): Uint8Array {
     let buffer = new ArrayBuffer(33);
     signer_public_key(this.signerType, this.derivationPathPtr, changetype<i32>(buffer));
-    return Hex.wrapArrayBuffer(buffer);
+    return Uint8Array.wrap(buffer);
   }
 
   /**
    * The ethereum address controlled by this signer.
    */
-  get ethAddress(): Hex {
+  get ethAddress(): Uint8Array {
     let buffer = new ArrayBuffer(20);
     signer_eth_address(this.signerType, this.derivationPathPtr, changetype<i32>(buffer));
-    return Hex.wrapArrayBuffer(buffer);
+    return Uint8Array.wrap(buffer);
   }
 
   /**

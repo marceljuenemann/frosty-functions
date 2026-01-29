@@ -1,28 +1,28 @@
-import { Signer, Promise, Hex, keccak256, verifiableRandomness } from "frosty";
+import { Signer, Promise, hex, keccak256, verifiableRandomness } from "frosty";
 import { CALLDATA, CALLING_CHAIN_NAME, CALLING_CHAIN_ID, JOB_ID } from "frosty/env";
 
 export function main(): void {
   console.log(`Invoked from ${CALLING_CHAIN_NAME} (Chain ID: ${CALLING_CHAIN_ID})`);
-  console.log(`Calldata is: ${CALLDATA}`);
+  console.log(`Calldata is: ${hex.encode(CALLDATA)}`);
   console.log(`Job ID is: ${JOB_ID}`);
 
   // TODO: Blurb
   const signer = Signer.forCaller();
-  console.log(`Signer.forCaller() ethereum address: ${signer.ethAddress}`);
-  console.log(`Signer.forCaller() public key: ${signer.publicKey}`);
+  console.log(`Signer.forCaller() ethereum address: ${hex.encode(signer.ethAddress)}`);
+  console.log(`Signer.forCaller() public key: ${hex.encode(signer.publicKey)}`);
 
   // TODO: Move to examples.
-  const signer2 = Signer.forCaller(CALLDATA.bytes);
-  console.log(`Signer.forCaller(CALLDATA) public key: ${signer2.publicKey}`);
+  const signer2 = Signer.forCaller(CALLDATA);
+  console.log(`Signer.forCaller(CALLDATA) public key: ${hex.encode(signer2.publicKey)}`);
 
-  const signer3 = Signer.forFunction(CALLDATA.bytes);
-  console.log(`Signer.forFunction(CALLDATA) public key: ${signer3.publicKey}`);
+  const signer3 = Signer.forFunction(CALLDATA);
+  console.log(`Signer.forFunction(CALLDATA) public key: ${hex.encode(signer3.publicKey)}`);
 
-  let hash = keccak256(CALLDATA.bytes);
-  console.log(`keccak256(CALLDATA): ${Hex.wrap(hash)}`);
+  let hash = keccak256(CALLDATA);
+  console.log(`keccak256(CALLDATA): ${hex.encode(hash)}`);
   signer.signWithEcsda(hash).then(signature => {
-    console.log(`Signature r: ${Hex.wrap(signature.r)}`);
-    console.log(`Signature s: ${Hex.wrap(signature.s)}`);
+    console.log(`Signature r: ${hex.encode(signature.r)}`);
+    console.log(`Signature s: ${hex.encode(signature.s)}`);
   })
 
 
