@@ -30,15 +30,14 @@ export class Signer {
     return Hex.wrapArrayBuffer(buffer);
   }
 
-
-  // TODO: Move to Address class with a toString method
-  /*
-  address(): string {
-    let buffer = new ArrayBuffer(42 * 2);  // 42 chars * 2 bytes / char
-    __evm_caller_wallet_address(changetype<i32>(buffer));
-    return String.UTF16.decode(buffer)
+  /**
+   * The ethereum address controlled by this signer.
+   */
+  get ethAddress(): Hex {
+    let buffer = new ArrayBuffer(20);
+    signer_eth_address(this.signerType, this.derivationPathPtr, changetype<i32>(buffer));
+    return Hex.wrapArrayBuffer(buffer);
   }
-  */
 
   /**
    * Signs the given message according to EIP-191
@@ -80,3 +79,6 @@ export class Signer {
 
 @external("❄️", "signer_public_key")
 declare function signer_public_key(signerType: i32, derivationPtr: i32, bufferPtr: i32): void;
+
+@external("❄️", "signer_eth_address")
+declare function signer_eth_address(signerType: i32, derivationPtr: i32, bufferPtr: i32): void;

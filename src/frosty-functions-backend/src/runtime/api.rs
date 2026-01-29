@@ -3,6 +3,7 @@ use std::env;
 use std::rc::Rc;
 
 use alloy::primitives::{Address, keccak256};
+use ic_stable_structures::Storable;
 use wasmi::{Caller, Error, Func, Global, Linker, Memory, Mutability, Store, Val, errors::LinkerError};
 use crate::runtime::{LogEntry, LogType, RuntimeEnvironment, job};
 use crate::signer::{Signer, ThresholdSigner};
@@ -79,6 +80,7 @@ pub fn register_host_functions(linker: &mut Linker<Ctx>, store: &mut Store<Ctx>)
     register!(on_chain_id, linker, store);
 
     register!(signer_public_key, linker, store);
+    register!(signer_eth_address, linker, store);
     //register!(evm_caller_wallet_sign_message, linker, store);
     register!(evm_chain_id, linker, store);
 
@@ -127,6 +129,13 @@ fn signer_public_key(mut caller: Caller<Ctx>, signer_type: i32, signer_derivatio
     let signer = get_signer(&caller, signer_type, signer_derivation)?;
     let public_key = signer.public_key().map_err(|e| Error::new(e))?;
     get_memory(&caller).write(&mut caller, buffer_ptr as usize, &public_key)?;
+    Ok(())
+}
+
+fn signer_eth_address(mut caller: Caller<Ctx>, signer_type: i32, signer_derivation: i32, buffer_ptr: i32) -> Result<(), Error> {
+    let signer = get_signer(&caller, signer_type, signer_derivation)?;
+    let address = signer.eth_address().map_err(|e| Error::new(e))?;
+    get_memory(&caller).write(&mut caller, buffer_ptr as usize, &address.to_bytes())?;
     Ok(())
 }
 

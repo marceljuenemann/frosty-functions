@@ -6,8 +6,12 @@ export function main(): void {
   console.log(`Calldata is: ${CALLDATA}`);
   console.log(`Job ID is: ${JOB_ID}`);
 
+  // TODO: Blurb
   const signer = Signer.forCaller();
+  console.log(`Signer.forCaller() ethereum address: ${signer.ethAddress}`);
   console.log(`Signer.forCaller() public key: ${signer.publicKey}`);
+
+  // TODO: Move to examples.
   const signer2 = Signer.forCaller(CALLDATA.bytes);
   console.log(`Signer.forCaller(CALLDATA) public key: ${signer2.publicKey}`);
 
