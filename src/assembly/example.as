@@ -21,7 +21,8 @@ export function main(): void {
   let hash = keccak256(CALLDATA.bytes);
   console.log(`keccak256(CALLDATA): ${Hex.wrap(hash)}`);
   signer.signWithEcsda(hash).then(signature => {
-    console.log(`Signature: ${Hex.wrap(signature)}`);
+    console.log(`Signature r: ${Hex.wrap(signature.r)}`);
+    console.log(`Signature s: ${Hex.wrap(signature.s)}`);
   })
 
 

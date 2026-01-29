@@ -46,14 +46,17 @@ export class Signer {
    * 
    * Use String.UTF8.encode or String.UTF16.encode to convert a string to an ArrayBuffer.
    */
-  signWithEcsda(messageHash: Uint8Array): Promise<Uint8Array> {
+  signWithEcsda(messageHash: Uint8Array): Promise<Signature> {
     if (messageHash.length != 32) {
       throw new Error(`Message hash must be 32 bytes. Got ${messageHash.length}`);
     }
     let messageHashPtr = changetype<i32>(messageHash.slice().buffer);
     let promise = new SharedPromise();
     sign_with_ecdsa(this.signerType, this.derivationPathPtr, messageHashPtr, promise.id);
-    return promise.map<Uint8Array>(buffer => Uint8Array.wrap(buffer));
+    return promise.map<Signature>(signature => new Signature(
+      Uint8Array.wrap(signature, 0, 32),
+      Uint8Array.wrap(signature, 32, 32),
+    ));
   }
 
   /**
@@ -77,6 +80,13 @@ export class Signer {
   static forFunction(derivationPath: Uint8Array | null = null): Signer {
     return new Signer(SIGNER_FOR_FUNCTION, derivationPath);
   }
+}
+
+export class Signature {
+  constructor(
+    public readonly r: Uint8Array,
+    public readonly s: Uint8Array,
+  ) {}
 }
 
 @external("❄️", "signer_public_key")
