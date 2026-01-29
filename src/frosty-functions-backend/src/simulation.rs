@@ -86,9 +86,4 @@ impl RuntimeEnvironment for Rc<RefCell<SimulationResult>> {
     fn commit(&mut self, commit: Commit) {
         self.borrow_mut().commits.push(commit);
     }
-
-    fn caller_wallet(&self) -> Option<IcpSigner> { 
-        // TODO: This is very ugly, refactor
-        None
-    }
 }

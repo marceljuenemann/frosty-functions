@@ -1,5 +1,3 @@
-use alloy::signers::icp::IcpSigner;
-
 use crate::runtime::{Commit, JobRequest};
 
 /// Trait to be implemented by consumers of the runtime module to provide
@@ -19,13 +17,9 @@ pub trait RuntimeEnvironment {
     /// Gas fees will be accounted separately from executions fees as they
     /// are charged by the calling chain rather than by ICP / Frosty.
     /// Returns an Error if insufficient funds are available.
+    // TODO: Remove this, no longer allowing native transactions on the main account.
     fn charge_gas(&mut self, gas: u64) -> Result<(), String>;
 
     /// Submits a commit to be stored persistently.
     fn commit(&mut self, commit: Commit);
-
-    /// Returns the shared wallet for the caller of the execution.
-    // TODO: Refactor this to make more sense in simulations. Maybe just split into
-    // separate calls. Should be possible to borrow execution context from async context
-    fn caller_wallet(&self) -> Option<IcpSigner>;
 }

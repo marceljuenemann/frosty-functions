@@ -139,6 +139,13 @@ tp://localhost:8545 --ether`
 
 See instructions [here](https://internetcomputer.org/docs/building-apps/developer-tools/cdks/rust/generating-candid#option-1-automatic-generation-using-generate-did-crate). There seems to be some issue with finding the right WASM file though, so I currently use `generate-candid.sh` as a workaround.
 
+### Deploy local EVM RPC canister
+
+```
+dfx deps pull
+dfx deps init evm_rpc --argument '(record {})'
+dfx deps deploy
+```
 
 ## License
 

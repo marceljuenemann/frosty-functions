@@ -5,26 +5,21 @@ mod repository;
 mod runtime;
 mod signer;
 mod simulation;
-mod state;
 mod storage;
 
 use std::cell::RefCell;
 
-use alloy::{signers::Signer};
+use candid::CandidType;
 use chain::{Chain};
 use evm_rpc_types::Nat256;
+use serde::{Deserialize, Serialize};
 
-use crate::{execution::schedule_job, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, runtime::{Commit, Job, JobRequest}, simulation::SimulationResult, state::{init_state, read_state}};
+use crate::{chain::Caller, execution::schedule_job, repository::{DeployResult, FunctionDefinition, FunctionId, FunctionState}, runtime::{Commit, Job, JobRequest}, signer::{derivation_path_for_caller, derivation_path_for_function}, simulation::SimulationResult};
+use crate::signer::{Signer, ThresholdSigner};
 
 // TODO: Remove again
 thread_local! {
     static VALID_API_KEYS: RefCell<Option<Vec<String>>> = RefCell::new(None);
-}
-
-#[ic_cdk::update]
-async fn init() {
-    // TODO: Just trigger from an init hook.
-    init_state().await;
 }
 
 #[ic_cdk::query]
@@ -34,7 +29,8 @@ fn get_commit(commit_id: u64) -> Option<Commit> {
 
 #[ic_cdk::query]
 fn get_evm_address() -> String {
-    read_state(|state| state.main_signer.address().to_string())
+    let signer = ThresholdSigner::new(vec![]);
+    signer.eth_address().unwrap().to_string()
 }
 
 /// Retrieve function definition and state by its ID.
@@ -96,5 +92,29 @@ fn simulate_execution(request: JobRequest, wasm: Vec<u8>) -> Result<SimulationRe
     crate::simulation::simulate_job(request, &wasm)
 }
 
-// Enable Candid export
+#[ic_cdk::query]
+fn signer_for_caller(caller: Caller, derivation: Option<Vec<u8>>) -> Result<SignerInfo, String> {
+    ThresholdSigner::new(derivation_path_for_caller(caller, derivation)).into()
+}
+
+#[ic_cdk::query]
+fn signer_for_function(function_id: FunctionId, derivation: Option<Vec<u8>>) -> Result<SignerInfo, String> {
+    ThresholdSigner::new(derivation_path_for_function(function_id, derivation)).into()
+}
+
+#[derive(Clone, CandidType, Deserialize, Serialize)]
+struct SignerInfo {
+    public_key: String,
+    eth_address: String,
+}
+
+impl From<ThresholdSigner> for Result<SignerInfo, String> {
+    fn from(signer: ThresholdSigner) -> Self {
+        Ok(SignerInfo {
+            public_key: hex::encode(&signer.public_key()?),
+            eth_address: signer.eth_address()?.to_string(),
+        })
+    }
+}
+
 ic_cdk::export_candid!();
